@@ -1,4 +1,4 @@
-"""LLM client (Anthropic Claude) + the rule-based fallback parser.
+"""LLM client (OpenAI GPT-5 nano via the Responses API) + the rule-based fallback parser.
 
 The language layer calls `LLMClient.parse_request()`. When the model is unavailable,
 over budget, refuses, or returns something unusable, `RuleBasedParser` produces the same
@@ -8,10 +8,11 @@ The LLM only *extracts* fields from chat text. It never does arithmetic, never l
 queues, and never chooses a workshop - those come from kernel/.
 
 Configuration comes from environment variables (or a local, git-ignored `.env` file):
-    DESK_LLM_PROVIDER    anthropic | none           (default none -> rules only)
-    DESK_LLM_MODEL       model id                   (default claude-haiku-4-5)
-    ANTHROPIC_API_KEY    API key from console.anthropic.com  (DESK_LLM_API_KEY also accepted)
-    DESK_LLM_BUDGET_USD  hard stop for one Python process   (default 5)
+    DESK_LLM_PROVIDER          openai | none      (default none -> rules only)
+    DESK_LLM_MODEL             model id           (default gpt-5-nano)
+    OPENAI_API_KEY             key from platform.openai.com (DESK_LLM_API_KEY also accepted)
+    DESK_LLM_BUDGET_USD        hard stop for one Python process (default 2)
+    DESK_LLM_REASONING_EFFORT  reasoning effort sent to the model (default low; empty = omit)
 See .env.example. Never commit a real key.
 """
 from __future__ import annotations
@@ -53,13 +54,14 @@ DATE_RE = re.compile(r"\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d
 PIECES_RE = re.compile(r"\b(\d[\d,]*)\s+(polo shirts?|crewneck sweaters?|vests?|hoodies?|polos?|crewnecks?|cardigans?|scarves|scarf|beanies?)\b", re.I)
 EXCLUDE_PATTERNS = [r"keep it away from\s+([A-Za-z &]+)", r"nothing new to\s+([A-Za-z &]+)", r"not\s+([A-Za-z &]+?)\b", r"avoid\s+([A-Za-z &]+)"]
 
-# USD per million tokens (input, output). Source: Anthropic pricing table, cached 2026-06-24.
+# USD per million tokens (input, output), OpenAI standard tier, checked 2026-09-13 at
+# developers.openai.com/api/docs/pricing. Reasoning tokens are billed as output tokens.
 PRICING: Dict[str, Tuple[float, float]] = {
-    "claude-haiku-4-5": (1.00, 5.00),
-    "claude-sonnet-5": (2.00, 10.00),
-    "claude-opus-5": (5.00, 25.00),
+    "gpt-5-nano": (0.05, 0.40),
+    "gpt-5-mini": (0.25, 2.00),
+    "gpt-5": (1.25, 10.00),
 }
-DEFAULT_MODEL = "claude-haiku-4-5"
+DEFAULT_MODEL = "gpt-5-nano"
 
 
 def empty_request() -> Dict:
@@ -166,26 +168,30 @@ class RuleBasedParser:
 # LLM extraction
 # ---------------------------------------------------------------------------------------
 
-def _nullable(schema: dict) -> dict:
-    return {"anyOf": [schema, {"type": "null"}]}
+def _nullable(type_name: str, enum: Optional[List] = None) -> dict:
+    """OpenAI strict mode: nullable via a type array; an enum must then also list null."""
+    d: dict = {"type": [type_name, "null"]}
+    if enum is not None:
+        d["enum"] = list(enum) + [None]
+    return d
 
 
 EXTRACTION_SCHEMA = {
     "type": "object",
     "properties": {
         "question_type": {"type": "string", "enum": ["allocation", "status", "information"]},
-        "order_id": _nullable({"type": "string"}),
-        "order_ref_hint": _nullable({"type": "string"}),
-        "customer": _nullable({"type": "string", "enum": CUSTOMERS}),
-        "product": _nullable({"type": "string", "enum": PRODUCTS}),
-        "category": _nullable({"type": "string", "enum": ["TOPS", "ACCESSORIES"]}),
-        "pieces": _nullable({"type": "integer"}),
-        "due_date": _nullable({"type": "string"}),
-        "forced_workshop": _nullable({"type": "string", "enum": list(WORKSHOP_NAMES.values())}),
+        "order_id": _nullable("string"),
+        "order_ref_hint": _nullable("string"),
+        "customer": _nullable("string", CUSTOMERS),
+        "product": _nullable("string", PRODUCTS),
+        "category": _nullable("string", ["TOPS", "ACCESSORIES"]),
+        "pieces": _nullable("integer"),
+        "due_date": _nullable("string"),
+        "forced_workshop": _nullable("string", list(WORKSHOP_NAMES.values())),
         "excluded_workshops": {"type": "array", "items": {"type": "string", "enum": list(WORKSHOP_NAMES.values())}},
         "constraint_scope": {"type": "string", "enum": ["request", "session"]},
         "preference": {"type": "string", "enum": ["none", "fastest", "cheapest_on_time", "lowest_defect", "split"]},
-        "references_prior": _nullable({"type": "string"}),
+        "references_prior": _nullable("string"),
         "missing_fields": {"type": "array", "items": {"type": "string", "enum": ["order_id", "pieces", "due_date"]}},
         "notes": {"type": "array", "items": {"type": "string"}},
     },
@@ -195,7 +201,7 @@ EXTRACTION_SCHEMA = {
     "additionalProperties": False,
 }
 
-SYSTEM_PROMPT = f"""You extract structured fields from one message in a knitwear factory's dispatch group chat.
+INSTRUCTIONS = f"""You extract structured fields from one message in a knitwear factory's dispatch group chat.
 Today is {TODAY}. Dates without a year are in 2026.
 
 Your only job is extraction. Do not look anything up, do not calculate, do not recommend a workshop.
@@ -216,73 +222,88 @@ Rules:
 
 
 class LLMClient:
-    """Calls Claude for extraction, enforces a spend cap, and falls back to rules on any failure."""
+    """Calls OpenAI for extraction, enforces a spend cap, and falls back to rules on any failure."""
 
-    def __init__(self, provider: Optional[str] = None, model: Optional[str] = None, budget_usd: Optional[float] = None):
+    def __init__(self, provider: Optional[str] = None, model: Optional[str] = None, budget_usd: Optional[float] = None,
+                 reasoning_effort: Optional[str] = None, max_output_tokens: int = 4000):
         self.provider = (provider or os.getenv("DESK_LLM_PROVIDER", "none")).lower()
         self.model = model or os.getenv("DESK_LLM_MODEL", DEFAULT_MODEL)
-        self.api_key = os.getenv("ANTHROPIC_API_KEY") or os.getenv("DESK_LLM_API_KEY", "")
-        self.budget_usd = float(budget_usd if budget_usd is not None else os.getenv("DESK_LLM_BUDGET_USD", "5"))
+        self.api_key = os.getenv("OPENAI_API_KEY") or os.getenv("DESK_LLM_API_KEY", "")
+        self.budget_usd = float(budget_usd if budget_usd is not None else os.getenv("DESK_LLM_BUDGET_USD", "2"))
+        effort = reasoning_effort if reasoning_effort is not None else os.getenv("DESK_LLM_REASONING_EFFORT", "low")
+        self.reasoning_effort = effort or None
+        self.max_output_tokens = max_output_tokens    # reasoning tokens count against this, so keep headroom
         self.spent_usd = 0.0
         self.fallback = RuleBasedParser()
         self.calls: List[Dict] = []     # every call: request id, model, tokens, cost, outcome
         self._client = None
 
-    def _anthropic(self):
+    def _openai(self):
         if self._client is None:
             try:
-                import anthropic
+                from openai import OpenAI
             except ImportError as ex:
-                raise RuntimeError("anthropic package not installed: pip install -r requirements.txt") from ex
-            self._client = anthropic.Anthropic(api_key=self.api_key, max_retries=2, timeout=30.0)
+                raise RuntimeError("openai package not installed: pip install -r requirements.txt") from ex
+            self._client = OpenAI(api_key=self.api_key, max_retries=2, timeout=60.0)
         return self._client
 
-    def complete(self, system: str, user: str, json_schema: Optional[dict] = None, max_tokens: int = 1024) -> str:
-        """One Messages API call. Returns the text of the first text block. Raises RuntimeError on any problem."""
-        if self.provider != "anthropic":
-            raise RuntimeError(f"LLM provider is {self.provider!r}; set DESK_LLM_PROVIDER=anthropic to enable")
+    def complete(self, instructions: str, user: str, json_schema: Optional[dict] = None,
+                 schema_name: str = "request_fields") -> str:
+        """One Responses API call. Returns the output text. Raises RuntimeError on any problem."""
+        if self.provider != "openai":
+            raise RuntimeError(f"LLM provider is {self.provider!r}; set DESK_LLM_PROVIDER=openai to enable")
         if not self.api_key:
-            raise RuntimeError("no API key: set ANTHROPIC_API_KEY")
+            raise RuntimeError("no API key: set OPENAI_API_KEY")
         if self.spent_usd >= self.budget_usd:
             raise RuntimeError(f"budget of {self.budget_usd} USD exhausted (spent {self.spent_usd:.4f})")
 
-        import anthropic
-        client = self._anthropic()
-        kwargs = dict(model=self.model, max_tokens=max_tokens, system=system,
-                      messages=[{"role": "user", "content": user}])
+        import openai
+        client = self._openai()
+        kwargs = dict(model=self.model, instructions=instructions, input=user, max_output_tokens=self.max_output_tokens)
+        if self.reasoning_effort:
+            kwargs["reasoning"] = {"effort": self.reasoning_effort}
         if json_schema is not None:
-            kwargs["output_config"] = {"format": {"type": "json_schema", "schema": json_schema}}
+            kwargs["text"] = {"format": {"type": "json_schema", "name": schema_name, "schema": json_schema, "strict": True}}
         try:
-            response = client.messages.create(**kwargs)
-        except anthropic.AuthenticationError as ex:
+            response = client.responses.create(**kwargs)
+        except openai.AuthenticationError as ex:
             raise RuntimeError("invalid API key") from ex
-        except anthropic.PermissionDeniedError as ex:
+        except openai.PermissionDeniedError as ex:
             raise RuntimeError("API key lacks permission for this model") from ex
-        except anthropic.NotFoundError as ex:
+        except openai.NotFoundError as ex:
             raise RuntimeError(f"model {self.model!r} not found") from ex
-        except anthropic.RateLimitError as ex:
-            raise RuntimeError("rate limited") from ex
-        except anthropic.BadRequestError as ex:
+        except openai.RateLimitError as ex:
+            raise RuntimeError("rate limited or out of credit") from ex
+        except openai.BadRequestError as ex:
             raise RuntimeError(f"bad request: {ex.message}") from ex
-        except anthropic.APIStatusError as ex:
-            raise RuntimeError(f"API error {ex.status_code}") from ex
-        except anthropic.APIConnectionError as ex:
+        except openai.APITimeoutError as ex:
+            raise RuntimeError("request timed out") from ex
+        except openai.APIConnectionError as ex:
             raise RuntimeError("network error") from ex
+        except openai.APIStatusError as ex:
+            raise RuntimeError(f"API error {ex.status_code}") from ex
 
+        usage = getattr(response, "usage", None)
+        in_tok = getattr(usage, "input_tokens", 0) or 0
+        out_tok = getattr(usage, "output_tokens", 0) or 0
         price_in, price_out = PRICING.get(self.model, PRICING[DEFAULT_MODEL])
-        cost = (response.usage.input_tokens * price_in + response.usage.output_tokens * price_out) / 1_000_000
+        cost = (in_tok * price_in + out_tok * price_out) / 1_000_000
         self.spent_usd += cost
-        self.calls.append({"model": self.model, "input_tokens": response.usage.input_tokens,
-                           "output_tokens": response.usage.output_tokens, "cost_usd": round(cost, 6),
-                           "stop_reason": response.stop_reason, "request_id": response._request_id})
+        self.calls.append({"model": self.model, "input_tokens": in_tok, "output_tokens": out_tok,
+                           "cost_usd": round(cost, 6), "status": getattr(response, "status", None),
+                           "request_id": getattr(response, "_request_id", None)})
 
-        if response.stop_reason == "refusal":
-            raise RuntimeError("model refused")
-        if response.stop_reason == "max_tokens":
-            raise RuntimeError("output truncated at max_tokens")
-        text = next((b.text for b in response.content if b.type == "text"), None)
-        if text is None:
-            raise RuntimeError("no text in response")
+        if getattr(response, "status", None) == "incomplete":
+            reason = getattr(getattr(response, "incomplete_details", None), "reason", "unknown")
+            raise RuntimeError(f"incomplete response: {reason}")
+        for item in getattr(response, "output", None) or []:
+            if getattr(item, "type", None) == "message":
+                for part in getattr(item, "content", None) or []:
+                    if getattr(part, "type", None) == "refusal":
+                        raise RuntimeError(f"model refused: {getattr(part, 'refusal', '')}")
+        text = getattr(response, "output_text", "") or ""
+        if not text.strip():
+            raise RuntimeError("empty output")
         return text
 
     def parse_request(self, line: str, prior: Optional[List[Dict]] = None) -> Dict:
@@ -294,7 +315,7 @@ class LLMClient:
         user = (f"Prior messages this morning (for references_prior only):\n{json.dumps(context, ensure_ascii=False)}\n\n"
                 f"Message {rid} at {ts} from {who}:\n{text}")
         try:
-            data = json.loads(self.complete(SYSTEM_PROMPT, user, EXTRACTION_SCHEMA))
+            data = json.loads(self.complete(INSTRUCTIONS, user, EXTRACTION_SCHEMA))
             r = empty_request()
             r.update(data)
             r.update(request_id=rid, timestamp=ts, requester=who, raw_text=text, parser=f"llm:{self.model}")
@@ -313,8 +334,8 @@ if __name__ == "__main__":
     import argparse
     from pathlib import Path
 
-    ap = argparse.ArgumentParser(description="Parse the 30 official requests with rules (default) or Claude (--llm).")
-    ap.add_argument("--llm", action="store_true", help="use Claude; needs DESK_LLM_PROVIDER=anthropic and ANTHROPIC_API_KEY")
+    ap = argparse.ArgumentParser(description="Parse the 30 official requests with rules (default) or GPT-5 nano (--llm).")
+    ap.add_argument("--llm", action="store_true", help="use OpenAI; needs DESK_LLM_PROVIDER=openai and OPENAI_API_KEY")
     ap.add_argument("--limit", type=int, default=None, help="only parse the first N requests")
     args = ap.parse_args()
 
@@ -333,5 +354,9 @@ if __name__ == "__main__":
                                             "question_type", "references_prior", "missing_fields", "notes")},
                          ensure_ascii=False))
     if client:
-        n_ok = sum(1 for c in client.calls if "cost_usd" in c)
-        print(f"\nLLM calls: {n_ok}  spent: ${client.spent_usd:.4f}  budget: ${client.budget_usd:.2f}  model: {client.model}")
+        ok = [c for c in client.calls if "cost_usd" in c]
+        fb = [c for c in client.calls if "outcome" in c]
+        print(f"\nLLM calls: {len(ok)}  fallbacks: {len(fb)}  spent: ${client.spent_usd:.4f}  "
+              f"budget: ${client.budget_usd:.2f}  model: {client.model}")
+        for c in fb[:3]:
+            print("  ", c["outcome"])

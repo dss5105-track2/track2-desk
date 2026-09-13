@@ -34,19 +34,29 @@ python llm/llm_client.py
 
 ## LLM 账号、费用与密钥
 
-语言层用 Claude 从群聊里提取字段，其余一律由 `kernel/` 计算。不配置 LLM 时系统自动使用规则解析器，所有测试和模拟器实验都不需要密钥。
+语言层用 OpenAI 的 GPT-5 nano 从群聊里提取字段，其余一律由 `kernel/` 计算。不配置 LLM 时系统自动使用规则解析器，所有测试和模拟器实验都不需要密钥。
 
-**账号。** 本仓库的程序通过 Anthropic API 调用 Claude，需要在 [console.anthropic.com](https://console.anthropic.com) 注册账号并生成 API key。这和 claude.ai 或 Claude Code 的订阅是两个独立产品，订阅不能给程序调用。建议由 LLM 基础设施负责人吴若晗注册一个团队账号并绑定付款方式，给每位需要调用的组员各生成一把 key，便于单独吊销。
+**账号。** 程序通过 OpenAI API 调用模型，需要在 [platform.openai.com](https://platform.openai.com) 注册账号、充值并生成 API key。ChatGPT 的订阅不包含 API 额度，不能给程序调用。建议由 LLM 基础设施负责人吴若晗注册团队账号并充值，给每位需要调用的组员各生成一把 key，便于单独吊销。
 
-**模型。** 默认 `claude-haiku-4-5`，是当前最便宜的 Claude 模型，足够完成字段提取。
+**模型。** 默认 `gpt-5-nano`，是 GPT-5 系列里最便宜的，足够完成字段提取。价格来自 OpenAI 官方价目表，2026-09-13 核对：
 
 | 模型 | 输入 $/百万 token | 输出 $/百万 token |
 |---|---|---|
-| claude-haiku-4-5 | 1.00 | 5.00 |
-| claude-sonnet-5 | 2.00 | 10.00 |
-| claude-opus-5 | 5.00 | 25.00 |
+| gpt-5-nano | 0.05 | 0.40 |
+| gpt-5-mini | 0.25 | 2.00 |
+| gpt-5 | 1.25 | 10.00 |
 
-**预算。** 一次提取约 1,500 个输入 token、300 个输出 token，用 Haiku 约 0.003 美元。30 条官方请求加 44 条留出集跑一轮约 0.2 美元；开发期反复跑一百轮也在 25 美元以内。建议在控制台为整个账号设 **每月 30 美元的硬性支出上限**，程序里再用 `DESK_LLM_BUDGET_USD` 做单次运行的保险。
+GPT-5 系列会先生成推理 token，按输出价计费。`DESK_LLM_REASONING_EFFORT` 默认设为 `low`，控制这部分开销。
+
+**预算。** 下面是估算，按每次提取约 1,500 个输入 token、800 个输出 token 算，输出里含推理 token。真实花费以运行后打印的数字为准。
+
+| 用量 | 估算花费 |
+|---|---|
+| 每条请求 | 约 0.0004 美元 |
+| 30 条官方请求加 44 条留出集，跑一轮 | 约 0.03 美元 |
+| 开发期反复跑一百轮 | 约 3 美元 |
+
+建议在 OpenAI 后台给项目设 **每月 10 美元的支出上限**，程序里再用 `DESK_LLM_BUDGET_USD` 做单次运行的保险。
 
 **密钥放哪里。** 只放在本机的 `.env` 文件里，这个文件已被 `.gitignore` 排除。
 
@@ -60,7 +70,7 @@ Windows PowerShell 用：
 Copy-Item .env.example .env
 ```
 
-然后编辑 `.env`，把 `ANTHROPIC_API_KEY` 换成自己的 key。验证：
+然后编辑 `.env`，把 `OPENAI_API_KEY` 换成自己的 key。验证：
 
 ```bash
 python llm/llm_client.py --llm --limit 3

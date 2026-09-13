@@ -1,7 +1,7 @@
 # Kernel, harness and tests use only the Python standard library (Python >= 3.9).
 
-# Language layer: Claude API and local .env loading
-anthropic
+# Language layer: OpenAI Responses API and local .env loading
+openai
 python-dotenv
 
 # Optional, for a nicer test runner
