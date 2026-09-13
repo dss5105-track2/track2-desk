@@ -145,21 +145,27 @@ class RuleBasedParser:
 
         # cross-message references
         if prior:
-            if re.search(r"\bthat\b|\bthe (big )?reorder\b|stuff|details to follow|will confirm", low):
-                same_person = [p for p in prior if p.get("requester") == r["requester"]]
-                if same_person:
-                    r["references_prior"] = same_person[-1]["request_id"]
+            # a follow-up names the same customer as the sender's earlier message ("the Loom & Leaf stuff" -> R10);
+            # "details to follow" points forward, and "that big reorder" names an order, not a message
+            if r["customer"] and re.search(r"\bthat\b|\bthe (big )?reorder\b|\bstuff\b", low):
+                same = [p for p in prior if p.get("requester") == r["requester"] and p.get("customer") == r["customer"]]
+                if same:
+                    r["references_prior"] = same[-1]["request_id"]
             for p in prior:
                 if r["order_id"] and p.get("order_id") == r["order_id"]:
                     r["notes"].append(f"same order as {p['request_id']}")
 
+        # schema.md: missing = needed for dispatch and not obtainable from the text or from an explicit order id
         missing = []
-        if not r["order_id"]:
-            missing.append("order_id")
-        if r["pieces"] is None and r["question_type"] == "allocation":
-            missing.append("pieces")
-        if r["due_date"] is None and r["question_type"] == "allocation":
-            missing.append("due_date")
+        if r["question_type"] == "allocation":
+            if not r["order_id"]:
+                missing.append("order_id")
+                if r["pieces"] is None:
+                    missing.append("pieces")
+                if r["due_date"] is None:
+                    missing.append("due_date")
+            elif r["due_date"] is None and re.search(r"will confirm|moved up|new date|to be confirmed|\btbc\b", low):
+                missing.append("due_date")
         r["missing_fields"] = missing
         return r
 

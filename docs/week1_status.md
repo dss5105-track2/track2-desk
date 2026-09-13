@@ -24,6 +24,12 @@ Claude 已起草第一周所有能以文件形式完成的产出。以下"必须
 
 ## 未完成
 
-- **GitHub 仓库尚未创建。** 本机没有安装 git 与 GitHub CLI。需要安装 Git for Windows，并由仓库所有者登录 GitHub 创建公开仓库。
-- **Python 代码尚未运行。** 所有数字请以跑出来的结果为准。
+- **GPT-5 nano 调用尚未验证。** 规则解析器已跑通；模型调用需要团队确认后运行 `python llm/llm_client.py --llm --limit 3`。
 - **`probe_overload` 工具**只写了规格，阶段 1 实现。
+
+## 09-14 更新
+
+- GitHub 公开仓库已建：github.com/dss5105-track2/track2-desk。
+- 已在 Python 3.12 上跑通：16 个测试全部通过；官方 baseline 完全复现；lateness 配置与十行启发式打平；标准答案数字与手工重放一致。详见 `docs/results_week1.md`。
+- 规则解析器修了两处：R10 被误判为引用 R05；有订单号或信息类问题时不再误报缺失字段。
+- 吴杰的验收项"测试通过、baseline 出表、0 次不合格分配"已满足，仍需本人在自己电脑上复跑一次确认。
