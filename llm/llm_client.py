@@ -1,15 +1,18 @@
-"""Provider-agnostic LLM client interface + the rule-based fallback parser.
+"""LLM client (Anthropic Claude) + the rule-based fallback parser.
 
-Week-1 scope: the *interface* and the *fallback*. No network call is made here yet.
-The language layer (week 3) will call `LLMClient.parse_request()`; when the model is
-unavailable, over budget, or returns malformed JSON, `RuleBasedParser` produces the same
-schema (language/schema.md) from regexes, so the demo never depends on the network.
+The language layer calls `LLMClient.parse_request()`. When the model is unavailable,
+over budget, refuses, or returns something unusable, `RuleBasedParser` produces the same
+schema (language/schema.md) from regexes, so the desk never depends on the network.
 
-Configuration is read from environment variables, never from the repo:
-    DESK_LLM_PROVIDER   anthropic | openai | none      (default none -> rules only)
-    DESK_LLM_MODEL      model id
-    DESK_LLM_API_KEY    key
-    DESK_LLM_BUDGET_USD hard stop for the session (default 5)
+The LLM only *extracts* fields from chat text. It never does arithmetic, never looks up
+queues, and never chooses a workshop - those come from kernel/.
+
+Configuration comes from environment variables (or a local, git-ignored `.env` file):
+    DESK_LLM_PROVIDER    anthropic | none           (default none -> rules only)
+    DESK_LLM_MODEL       model id                   (default claude-haiku-4-5)
+    ANTHROPIC_API_KEY    API key from console.anthropic.com  (DESK_LLM_API_KEY also accepted)
+    DESK_LLM_BUDGET_USD  hard stop for one Python process   (default 5)
+See .env.example. Never commit a real key.
 """
 from __future__ import annotations
 
@@ -17,8 +20,15 @@ import json
 import os
 import re
 from datetime import date
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
+try:  # optional convenience: load a local .env if python-dotenv is installed
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+TODAY = "2026-04-01"
 MONTHS = {"jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6, "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12}
 
 PRODUCT_WORDS = {
@@ -32,15 +42,24 @@ PRODUCT_WORDS = {
     "scarf": ("Scarf", "ACCESSORIES"), "scarves": ("Scarf", "ACCESSORIES"),
     "beanie": ("Beanie", "ACCESSORIES"), "beanies": ("Beanie", "ACCESSORIES"),
 }
+PRODUCTS = ["Cardigan", "Crewneck sweater", "Hoodie", "Polo shirt", "Vest", "Scarf", "Beanie"]
 CUSTOMERS = ["UrbanThread", "TrendCart", "Cotton Club", "Harbor Knits", "Bright Basics", "Loom & Leaf", "Maple & Co", "Northwind Apparel"]
 WORKSHOP_NAMES = {"QuickStitch": "W1", "SteadyHands": "W2", "BudgetWorks": "W3", "Little Loom": "W4",
                   "GiantWeave": "W5", "Nimble Needle": "W6", "OldMill": "W7", "FreshStart": "W8"}
 
-LINE_RE = re.compile(r"^(R\d+)\s+\[(\d\d:\d\d)\]\s+([A-Za-z]+):\s*(.*)$")
+LINE_RE = re.compile(r"^([RH]\d+)\s+\[(\d\d:\d\d)\]\s+([A-Za-z]+):\s*(.*)$")
 ORD_RE = re.compile(r"\bORD-\d{3}\b")
 DATE_RE = re.compile(r"\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})\b", re.I)
 PIECES_RE = re.compile(r"\b(\d[\d,]*)\s+(polo shirts?|crewneck sweaters?|vests?|hoodies?|polos?|crewnecks?|cardigans?|scarves|scarf|beanies?)\b", re.I)
 EXCLUDE_PATTERNS = [r"keep it away from\s+([A-Za-z &]+)", r"nothing new to\s+([A-Za-z &]+)", r"not\s+([A-Za-z &]+?)\b", r"avoid\s+([A-Za-z &]+)"]
+
+# USD per million tokens (input, output). Source: Anthropic pricing table, cached 2026-06-24.
+PRICING: Dict[str, Tuple[float, float]] = {
+    "claude-haiku-4-5": (1.00, 5.00),
+    "claude-sonnet-5": (2.00, 10.00),
+    "claude-opus-5": (5.00, 25.00),
+}
+DEFAULT_MODEL = "claude-haiku-4-5"
 
 
 def empty_request() -> Dict:
@@ -53,6 +72,14 @@ def empty_request() -> Dict:
     }
 
 
+def parse_header(line: str) -> Tuple[Optional[str], Optional[str], Optional[str], str]:
+    """'R07 [08:23] Ravi: text' -> ('R07', '08:23', 'Ravi', 'text'). Deterministic, never sent to the LLM to guess."""
+    m = LINE_RE.match(line.strip())
+    if m:
+        return m.group(1), m.group(2), m.group(3), m.group(4)
+    return None, None, None, line.strip()
+
+
 class RuleBasedParser:
     """Deterministic extraction. Good enough to keep the demo alive; not the final parser."""
 
@@ -62,10 +89,7 @@ class RuleBasedParser:
     def parse(self, line: str, prior: Optional[List[Dict]] = None) -> Dict:
         r = empty_request()
         r["parser"] = "rules"
-        m = LINE_RE.match(line.strip())
-        text = line
-        if m:
-            r["request_id"], r["timestamp"], r["requester"], text = m.groups()
+        r["request_id"], r["timestamp"], r["requester"], text = parse_header(line)
         r["raw_text"] = text
         low = text.lower()
 
@@ -138,54 +162,176 @@ class RuleBasedParser:
         return r
 
 
+# ---------------------------------------------------------------------------------------
+# LLM extraction
+# ---------------------------------------------------------------------------------------
+
+def _nullable(schema: dict) -> dict:
+    return {"anyOf": [schema, {"type": "null"}]}
+
+
+EXTRACTION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "question_type": {"type": "string", "enum": ["allocation", "status", "information"]},
+        "order_id": _nullable({"type": "string"}),
+        "order_ref_hint": _nullable({"type": "string"}),
+        "customer": _nullable({"type": "string", "enum": CUSTOMERS}),
+        "product": _nullable({"type": "string", "enum": PRODUCTS}),
+        "category": _nullable({"type": "string", "enum": ["TOPS", "ACCESSORIES"]}),
+        "pieces": _nullable({"type": "integer"}),
+        "due_date": _nullable({"type": "string"}),
+        "forced_workshop": _nullable({"type": "string", "enum": list(WORKSHOP_NAMES.values())}),
+        "excluded_workshops": {"type": "array", "items": {"type": "string", "enum": list(WORKSHOP_NAMES.values())}},
+        "constraint_scope": {"type": "string", "enum": ["request", "session"]},
+        "preference": {"type": "string", "enum": ["none", "fastest", "cheapest_on_time", "lowest_defect", "split"]},
+        "references_prior": _nullable({"type": "string"}),
+        "missing_fields": {"type": "array", "items": {"type": "string", "enum": ["order_id", "pieces", "due_date"]}},
+        "notes": {"type": "array", "items": {"type": "string"}},
+    },
+    "required": ["question_type", "order_id", "order_ref_hint", "customer", "product", "category", "pieces", "due_date",
+                 "forced_workshop", "excluded_workshops", "constraint_scope", "preference", "references_prior",
+                 "missing_fields", "notes"],
+    "additionalProperties": False,
+}
+
+SYSTEM_PROMPT = f"""You extract structured fields from one message in a knitwear factory's dispatch group chat.
+Today is {TODAY}. Dates without a year are in 2026.
+
+Your only job is extraction. Do not look anything up, do not calculate, do not recommend a workshop.
+
+Rules:
+- Extract only what the message itself says. If the message does not state a field, return null. Never fill a field from general knowledge or a guess.
+- order_id: an explicit ORD-xxx in the message, else null. If the message refers to an order without an id ("the TrendCart order", "that big reorder"), put that phrase in order_ref_hint.
+- pieces and due_date: only when stated. "back by", "ship date", "deadline", "due", "make <date>" all mean due_date (ISO yyyy-mm-dd).
+- Workshops map to ids: {json.dumps(WORKSHOP_NAMES)}.
+- A workshop the sender wants used goes in forced_workshop. A workshop to avoid ("keep it away from", "nothing new to", "avoid") goes in excluded_workshops, not forced_workshop.
+- constraint_scope is "session" only when an exclusion is meant to last beyond this one order (e.g. "this week"); otherwise "request".
+- preference: "fastest" for fastest/quickest/asap; "cheapest_on_time" for cheapest that still meets the date; "lowest_defect" for quality or lowest defect rate; "split" for splitting across shops; else "none".
+- question_type: "information" for questions about history or prices; "status" for progress questions; else "allocation".
+- references_prior: the request_id of an earlier message this one continues, chosen only from the prior messages provided; else null.
+- missing_fields: for allocation messages, which of order_id, pieces, due_date the message leaves unstated and that cannot be identified from an explicit order id.
+- notes: short factual observations about ambiguity in the message, in English. Empty list if none.
+"""
+
+
 class LLMClient:
-    """Thin wrapper. `complete()` is provider-specific; everything else is provider-agnostic."""
+    """Calls Claude for extraction, enforces a spend cap, and falls back to rules on any failure."""
 
     def __init__(self, provider: Optional[str] = None, model: Optional[str] = None, budget_usd: Optional[float] = None):
         self.provider = (provider or os.getenv("DESK_LLM_PROVIDER", "none")).lower()
-        self.model = model or os.getenv("DESK_LLM_MODEL", "")
-        self.api_key = os.getenv("DESK_LLM_API_KEY", "")
+        self.model = model or os.getenv("DESK_LLM_MODEL", DEFAULT_MODEL)
+        self.api_key = os.getenv("ANTHROPIC_API_KEY") or os.getenv("DESK_LLM_API_KEY", "")
         self.budget_usd = float(budget_usd if budget_usd is not None else os.getenv("DESK_LLM_BUDGET_USD", "5"))
         self.spent_usd = 0.0
         self.fallback = RuleBasedParser()
-        self.calls: List[Dict] = []     # every call is logged: prompt hash, model, tokens, cost, outcome
+        self.calls: List[Dict] = []     # every call: request id, model, tokens, cost, outcome
+        self._client = None
 
-    # ---- to be implemented per provider in week 3 -------------------------
-    def complete(self, system: str, user: str, json_schema: Optional[dict] = None) -> str:
-        if self.provider == "none" or not self.api_key:
-            raise RuntimeError("LLM disabled or no API key")
+    def _anthropic(self):
+        if self._client is None:
+            try:
+                import anthropic
+            except ImportError as ex:
+                raise RuntimeError("anthropic package not installed: pip install -r requirements.txt") from ex
+            self._client = anthropic.Anthropic(api_key=self.api_key, max_retries=2, timeout=30.0)
+        return self._client
+
+    def complete(self, system: str, user: str, json_schema: Optional[dict] = None, max_tokens: int = 1024) -> str:
+        """One Messages API call. Returns the text of the first text block. Raises RuntimeError on any problem."""
+        if self.provider != "anthropic":
+            raise RuntimeError(f"LLM provider is {self.provider!r}; set DESK_LLM_PROVIDER=anthropic to enable")
+        if not self.api_key:
+            raise RuntimeError("no API key: set ANTHROPIC_API_KEY")
         if self.spent_usd >= self.budget_usd:
-            raise RuntimeError(f"budget of {self.budget_usd} USD exhausted")
-        raise NotImplementedError(f"provider {self.provider!r}: implement complete() in week 3")
+            raise RuntimeError(f"budget of {self.budget_usd} USD exhausted (spent {self.spent_usd:.4f})")
 
-    # ---- provider-agnostic ---------------------------------------------------
-    def parse_request(self, line: str, prior: Optional[List[Dict]] = None, system_prompt: str = "") -> Dict:
-        """Returns a request dict per language/schema.md. Falls back to rules on any failure."""
+        import anthropic
+        client = self._anthropic()
+        kwargs = dict(model=self.model, max_tokens=max_tokens, system=system,
+                      messages=[{"role": "user", "content": user}])
+        if json_schema is not None:
+            kwargs["output_config"] = {"format": {"type": "json_schema", "schema": json_schema}}
         try:
-            raw = self.complete(system_prompt, line)
-            data = json.loads(raw)
-            base = empty_request(); base.update(data); base["parser"] = f"llm:{self.model}"
-            self.calls.append({"line": line, "outcome": "ok"})
-            return base
+            response = client.messages.create(**kwargs)
+        except anthropic.AuthenticationError as ex:
+            raise RuntimeError("invalid API key") from ex
+        except anthropic.PermissionDeniedError as ex:
+            raise RuntimeError("API key lacks permission for this model") from ex
+        except anthropic.NotFoundError as ex:
+            raise RuntimeError(f"model {self.model!r} not found") from ex
+        except anthropic.RateLimitError as ex:
+            raise RuntimeError("rate limited") from ex
+        except anthropic.BadRequestError as ex:
+            raise RuntimeError(f"bad request: {ex.message}") from ex
+        except anthropic.APIStatusError as ex:
+            raise RuntimeError(f"API error {ex.status_code}") from ex
+        except anthropic.APIConnectionError as ex:
+            raise RuntimeError("network error") from ex
+
+        price_in, price_out = PRICING.get(self.model, PRICING[DEFAULT_MODEL])
+        cost = (response.usage.input_tokens * price_in + response.usage.output_tokens * price_out) / 1_000_000
+        self.spent_usd += cost
+        self.calls.append({"model": self.model, "input_tokens": response.usage.input_tokens,
+                           "output_tokens": response.usage.output_tokens, "cost_usd": round(cost, 6),
+                           "stop_reason": response.stop_reason, "request_id": response._request_id})
+
+        if response.stop_reason == "refusal":
+            raise RuntimeError("model refused")
+        if response.stop_reason == "max_tokens":
+            raise RuntimeError("output truncated at max_tokens")
+        text = next((b.text for b in response.content if b.type == "text"), None)
+        if text is None:
+            raise RuntimeError("no text in response")
+        return text
+
+    def parse_request(self, line: str, prior: Optional[List[Dict]] = None) -> Dict:
+        """Returns a request dict per language/schema.md. Falls back to rules on any failure."""
+        rid, ts, who, text = parse_header(line)
+        context = [{"request_id": p.get("request_id"), "requester": p.get("requester"),
+                    "order_id": p.get("order_id"), "order_ref_hint": p.get("order_ref_hint")}
+                   for p in (prior or [])]
+        user = (f"Prior messages this morning (for references_prior only):\n{json.dumps(context, ensure_ascii=False)}\n\n"
+                f"Message {rid} at {ts} from {who}:\n{text}")
+        try:
+            data = json.loads(self.complete(SYSTEM_PROMPT, user, EXTRACTION_SCHEMA))
+            r = empty_request()
+            r.update(data)
+            r.update(request_id=rid, timestamp=ts, requester=who, raw_text=text, parser=f"llm:{self.model}")
+            if r["references_prior"] and r["references_prior"] not in {c["request_id"] for c in context}:
+                r["notes"].append(f"dropped unknown reference {r['references_prior']}")
+                r["references_prior"] = None
+            return r
         except Exception as ex:           # noqa: BLE001 - any failure must degrade, never crash the desk
-            self.calls.append({"line": line, "outcome": f"fallback: {type(ex).__name__}: {ex}"})
+            self.calls.append({"request_id": rid, "outcome": f"fallback: {type(ex).__name__}: {ex}"})
             r = self.fallback.parse(line, prior)
-            r["notes"].append(f"fallback: {type(ex).__name__}")
+            r["notes"].append(f"fallback: {ex}")
             return r
 
 
 if __name__ == "__main__":
-    import sys
+    import argparse
     from pathlib import Path
+
+    ap = argparse.ArgumentParser(description="Parse the 30 official requests with rules (default) or Claude (--llm).")
+    ap.add_argument("--llm", action="store_true", help="use Claude; needs DESK_LLM_PROVIDER=anthropic and ANTHROPIC_API_KEY")
+    ap.add_argument("--limit", type=int, default=None, help="only parse the first N requests")
+    args = ap.parse_args()
+
     src = Path(__file__).resolve().parent.parent / "data" / "dispatch_requests.txt"
+    lines = [ln for ln in src.read_text(encoding="utf-8").splitlines() if ln.strip() and not ln.startswith("#")]
+    if args.limit:
+        lines = lines[: args.limit]
+    client = LLMClient() if args.llm else None
+    rules = RuleBasedParser()
     prior: List[Dict] = []
-    p = RuleBasedParser()
-    for line in src.read_text(encoding="utf-8").splitlines():
-        if not line.strip() or line.startswith("#"):
-            continue
-        r = p.parse(line, prior)
+    for line in lines:
+        r = client.parse_request(line, prior) if client else rules.parse(line, prior)
         prior.append(r)
-        print(json.dumps({k: r[k] for k in ("request_id", "requester", "order_id", "customer", "product", "pieces", "due_date",
-                                            "forced_workshop", "excluded_workshops", "constraint_scope", "preference",
-                                            "question_type", "references_prior", "missing_fields")},
+        print(json.dumps({k: r[k] for k in ("request_id", "parser", "order_id", "order_ref_hint", "customer", "product", "pieces",
+                                            "due_date", "forced_workshop", "excluded_workshops", "constraint_scope", "preference",
+                                            "question_type", "references_prior", "missing_fields", "notes")},
                          ensure_ascii=False))
+    if client:
+        n_ok = sum(1 for c in client.calls if "cost_usd" in c)
+        print(f"\nLLM calls: {n_ok}  spent: ${client.spent_usd:.4f}  budget: ${client.budget_usd:.2f}  model: {client.model}")

@@ -1,3 +1,8 @@
 # Kernel, harness and tests use only the Python standard library (Python >= 3.9).
-# Optional, for a nicer test runner:
+
+# Language layer: Claude API and local .env loading
+anthropic
+python-dotenv
+
+# Optional, for a nicer test runner
 pytest>=7
