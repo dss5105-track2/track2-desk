@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+.env
+*.env
+results/
+scenarios/out/
+eval/runs/
+.DS_Store
+Thumbs.db
+~$*.docx

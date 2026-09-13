@@ -1,0 +1,8 @@
+{
+  "name": "acc_surge",
+  "description": "Add 20 accessory orders resampled from the existing 35, with new ids and order dates spread over the same 85 days.",
+  "transform": "add_orders",
+  "category": "ACCESSORIES",
+  "extra_orders": 20,
+  "seed": 5105
+}

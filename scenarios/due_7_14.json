@@ -1,0 +1,8 @@
+{
+  "name": "due_7_14",
+  "description": "Rescale every order's slack (due_date - order_date) into the Primer's 7-14 day reorder window.",
+  "transform": "rescale_slack",
+  "min_slack_days": 7,
+  "max_slack_days": 14,
+  "seed": 5105
+}
