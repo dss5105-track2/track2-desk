@@ -95,7 +95,10 @@ def main():
                 session_excl[wid] = (r["requester"], rid)
         rows.append(row)
 
-    out = ROOT / "eval" / f"gold_facts{'' if args.ban_scope == 'session' else '_' + args.ban_scope}.csv"
+    # written next to the draft labels: it contains the expected behaviour for every request,
+    # so it must stay out of sight until everyone has finished independent classification
+    outdir = label_path.parent
+    out = outdir / f"gold_facts{'' if args.ban_scope == 'session' else '_' + args.ban_scope}.csv"
     with open(out, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
         w.writeheader(); w.writerows(rows)

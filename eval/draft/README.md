@@ -5,6 +5,7 @@
 - 全员独立分类（labeling_guide 第 1 步）交齐之前，任何人都不要打开本目录的 CSV，否则分歧统计失效。
 - 数字由 PowerShell 按内核公式重放得到（含返工期望、Python round 规则），本机当时无 Python。正式数字必须由 `python eval/compute_gold_facts.py` 生成并与本草稿比对。
 - `final` 列由张锦若在双人标注后填写；定稿后另存为 `eval/gold_labels.csv`，本草稿保留不删，作为开发接触的证据。
+- `gold_facts.csv` 与 `gold_facts_request.csv` 是 `python eval/compute_gold_facts.py` 按草稿标签重放的推荐与数字，同样含答案，同样不要提前打开。
 
 ## 草稿里的分布
 

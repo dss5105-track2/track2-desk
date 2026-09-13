@@ -27,7 +27,7 @@ python llm/llm_client.py
 | `harness/simulate.py` | 官方三个 baseline 表 |
 | `harness/run_baselines.py` | 官方 baseline + 十行启发式 + 五个目标配置，写入 `results/` |
 | `harness/run_seeds.py` | 每个策略迟交率与 P90 的最小、平均、最大值 |
-| `eval/compute_gold_facts.py` | 按协议重放 30 条请求的推荐与数字，写入 `eval/gold_facts.csv` |
+| `eval/compute_gold_facts.py` | 按协议重放 30 条请求的推荐与数字，写入标签文件所在目录；定稿前是 `eval/draft/`，独立分类前不要打开 |
 | `llm/llm_client.py` | 规则回退解析器对 30 条请求的解析结果 |
 
 **引用任何模拟器数字时，同时写出命令、seed 和 commit。** `run_baselines.py` 会把 commit 写进 CSV。
