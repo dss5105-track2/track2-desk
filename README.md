@@ -4,7 +4,16 @@
 
 团队：屈妍玥 · 张锦若 · 吴杰 · 李岩 · 吴若晗 · 许佩瑶
 
-> **状态：第一周（2026-09-14）。** 仓库内容由 Claude 起草。已在 Python 3.12 上跑通全部测试、官方模拟器、基线对比与压力场景，结果见 [`docs/results_week1.md`](docs/results_week1.md)。GPT-5 nano 调用尚未验证。
+> **状态：第一周（2026-09-14）。** 仓库内容由 Claude 起草。已在 Python 3.12 上跑通全部测试、官方模拟器、基线对比、压力场景和调度员界面，结果见 [`docs/results_week1.md`](docs/results_week1.md)。
+
+## 打开调度员界面
+
+```bash
+python -m pip install -r requirements.txt
+streamlit run app/streamlit_app.py
+```
+
+浏览器会打开 http://localhost:8501 。点左侧 **Load morning inbox** 收到 4 月 1 日的 30 条群聊，然后逐条点开处理。**系统只推荐，确认按钮按下之前不会派出任何一单。** 页面说明和演示脚本见 [`docs/ui_guide.md`](docs/ui_guide.md)。
 
 ## 快速开始
 
@@ -29,6 +38,22 @@ python llm/llm_client.py
 | `harness/run_seeds.py` | 每个策略迟交率与 P90 的最小、平均、最大值 |
 | `eval/compute_gold_facts.py` | 按协议重放 30 条请求的推荐与数字，写入标签文件所在目录；定稿前是 `eval/draft/`，独立分类前不要打开 |
 | `llm/llm_client.py` | 规则回退解析器对 30 条请求的解析结果 |
+
+### 端到端跑一遍早上的 30 条群聊
+
+```bash
+python desk/pipeline.py
+python desk/pipeline.py --only R21
+python desk/pipeline.py --llm
+```
+
+| 命令 | 作用 |
+|---|---|
+| `desk/pipeline.py` | 用规则解析器按时间顺序处理 30 条：解析 → 订单状态检查 → 判定派单、追问、拒绝或无法回答 → 内核算交期与排序 → 用工具输出生成解释并核查数字 → 派单请求自动确认后写账本。不联网、不花钱 |
+| `--only R21` | 只看一条请求的完整决策和工具调用链 |
+| `--llm` | 改用 GPT-5 nano 解析，需要 `.env`，会产生费用 |
+
+输出写入 `eval/runs/<时间>/`，该目录被 git 忽略：`transcript.md` 是人能读的逐条记录，`decisions.jsonl` 是结构化决策，`audit.json` 是账本审计记录。如果 `eval/draft/` 里有标准答案草稿，运行结束会打印对照分数。**独立分类交齐之前不要看这些输出，里面有答案。**
 
 **引用任何模拟器数字时，同时写出命令、seed 和 commit。** `run_baselines.py` 会把 commit 写进 CSV。
 

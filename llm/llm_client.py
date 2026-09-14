@@ -138,7 +138,8 @@ class RuleBasedParser:
         elif "split" in low:
             r["preference"] = "split"
 
-        if re.search(r"\bwhich workshop did we use\b|last (october|month|year)|what price|quote(d)? .* on", low):
+        # history / price questions only; "rejected a batch last month" is context, not a question
+        if re.search(r"\bwhich workshop did we use\b|\bwhat price\b|\bdid we quote\b|\bwho made\b.*\blast\b", low):
             r["question_type"] = "information"
         if re.search(r"any movement|how is|status", low) and not r["pieces"]:
             r["question_type"] = "status"

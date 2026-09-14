@@ -86,7 +86,8 @@ def split_estimate(workshops, category: str, pieces: int, queues: Dict[str, floa
     x = max(0, min(pieces, int(round(x))))
     fa = fixed_a + x / wa.capacity
     fb = fixed_b + (pieces - x) / wb.capacity
-    finish = max(fa, fb)
+    # a shop that receives no pieces does not delay the batch
+    finish = max(f for f, n in ((fa, x), (fb, pieces - x)) if n > 0)
     return {
         "possible": True,
         "plan": [{"workshop_id": a.workshop_id, "pieces": x, "finish_days": fa},
