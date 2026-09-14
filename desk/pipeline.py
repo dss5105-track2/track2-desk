@@ -1,5 +1,12 @@
-"""End-to-end pipeline v0: process the morning inbox exactly as eval/protocol.md describes.
+"""The dispatch desk: chat line -> structured request -> behaviour -> kernel -> explanation -> ledger.
 
+Two ways in:
+  * `Desk.propose(line)` returns a decision and writes nothing. A dispatcher then calls
+    `confirm`, `mark`, `follow_up`, `reassign` or `lift_constraint`. This is what the UI uses.
+  * `Desk.handle(line)` proposes and auto-confirms on-time allocations. The CLI below uses it
+    to replay a whole inbox unattended.
+
+CLI:
     python desk/pipeline.py                  # rule parser, no network, no cost
     python desk/pipeline.py --llm            # GPT-5 nano extraction (costs money; needs .env)
     python desk/pipeline.py --only R12       # one request, full detail
@@ -10,7 +17,7 @@ For every chat line, in timestamp order:
   3. route           -> decline / clarify / refuse / extract   (deterministic, labeling_guide order)
   4. kernel          -> eligibility table, estimates, ranking  (kernel/, zero LLM)
   5. explain         -> text built only from tool outputs; every number is checked against them
-  6. confirm+commit  -> allocate requests are auto-confirmed by "demo-dispatcher" and written to the ledger
+  6. confirm+commit  -> only a human confirmation changes the ledger
 Outputs go to eval/runs/<timestamp>/ (git-ignored): decisions.jsonl, audit.json, transcript.md.
 If eval/draft/ gold files exist, the run is scored against them. That comparison is a development
 check on the official 30, not the held-out evaluation.
@@ -18,6 +25,7 @@ check on the official 30, not the held-out evaluation.
 from __future__ import annotations
 
 import argparse
+import copy
 import csv
 import json
 import re
@@ -31,31 +39,53 @@ sys.path.insert(0, str(ROOT))
 
 from kernel.register import load_workshops, check_eligibility, eligibility_table  # noqa: E402
 from kernel.orders import load_orders, find_orders, state_checks, TODAY  # noqa: E402
-from kernel.allocator import Allocator  # noqa: E402
-from kernel.estimator import split_estimate  # noqa: E402
+from kernel.allocator import Allocator, OBJECTIVES  # noqa: E402
+from kernel.estimator import estimate, split_estimate  # noqa: E402
 from kernel.ledger import Ledger  # noqa: E402
 from llm.llm_client import RuleBasedParser, LLMClient  # noqa: E402
 
 OFFICIAL = {"allocate": "extract", "no_on_time_option": "extract", "ambiguous_reference": "clarify",
             "missing_fields": "clarify", "state_conflict": "clarify", "ineligible_suggestion": "refuse",
             "not_in_data": "decline-to-answer"}
+# what the dispatcher is expected to do next, per subtype
+STATUS = {"allocate": "awaiting_confirmation", "no_on_time_option": "awaiting_decision",
+          "ineligible_suggestion": "refused", "ambiguous_reference": "needs_reply",
+          "missing_fields": "needs_reply", "state_conflict": "needs_reply", "not_in_data": "answered"}
+# statuses a dispatcher can set without touching the ledger
+HUMAN_STATUSES = {"reply_sent", "answer_sent", "escalated", "renegotiating", "dismissed"}
 NEW_ORDER_RE = re.compile(r"details to follow|new rush|coming in from", re.I)
 
 
+def days(n: int) -> str:
+    return f"{n} day" if n == 1 else f"{n} days"
+
+
 class Desk:
-    def __init__(self, parser, objective: str = "lateness"):
+    def __init__(self, parser=None, objective: str = "lateness"):
         self.W = load_workshops()
         self.O = load_orders()
         self.ledger = Ledger(self.W, TODAY)
         self.alloc = Allocator(objective)
-        self.parser = parser
+        self.parser = parser or RuleBasedParser().parse
         self.session_excl: Dict[str, dict] = {}     # workshop_id -> {"by", "source"}
         self.history: List[dict] = []               # parsed requests, for cross-message memory
         self.decisions: Dict[str, dict] = {}
+        self.actions: List[dict] = []               # every human action, ledger or not
+        self.seq = 0
 
     # ---------------------------------------------------------------- helpers
     def name(self, wid: str) -> str:
         return self.W[wid].name
+
+    def set_objective(self, objective: str) -> None:
+        load = self.alloc.load
+        self.alloc = Allocator(objective)
+        self.alloc.load = load
+        self.refresh_all()
+
+    def next_request_id(self) -> str:
+        self.seq += 1
+        return f"H{self.seq:02d}"
 
     def _batch(self, order, req) -> dict:
         pieces = req["pieces"] or order.pieces
@@ -70,11 +100,20 @@ class Desk:
             notes.append(f"chat due date {req['due_date']} differs from orders.csv {order.due_date}")
         return notes
 
+    def exclusions_for(self, req: dict) -> set:
+        return set(req["excluded_workshops"]) | set(self.session_excl)
+
+    def _log(self, request_id: Optional[str], action: str, by: str, note: str = "") -> dict:
+        entry = {"at": datetime.now().isoformat(timespec="seconds"), "request_id": request_id, "action": action, "by": by, "note": note}
+        self.actions.append(entry)
+        return entry
+
     # ---------------------------------------------------------------- routing
     def route(self, req: dict) -> dict:
         d = {"request_id": req["request_id"], "timestamp": req["timestamp"], "requester": req["requester"],
              "raw_text": req["raw_text"], "parsed": req, "tool_calls": [], "subtype": None, "order_id": req["order_id"],
-             "recommended": None, "candidates": [], "explanation": "", "committed": None, "flags": []}
+             "recommended": None, "candidates": [], "eligibility": [], "explanation": "", "committed": None,
+             "flags": [], "batch": None, "order_candidates": [], "refused_workshop": None}
 
         # 1. questions the data cannot answer
         if req["question_type"] == "information":
@@ -115,6 +154,7 @@ class Desk:
                 d["flags"].append(f"resolved uniquely to {order.order_id}")
             else:
                 d["subtype"] = "ambiguous_reference"
+                d["order_candidates"] = [o.order_id for o in cands]
                 if cands:
                     listing = "; ".join(f"{o.order_id} {o.customer} {o.product} {o.pieces} pcs due {o.due_date}" for o in cands)
                     d["explanation"] = f"Which order do you mean? {len(cands)} in-progress orders match: {listing}."
@@ -140,16 +180,21 @@ class Desk:
             return d
 
         batch = self._batch(order, req)
-        excl = set(req["excluded_workshops"]) | set(self.session_excl)
+        excl = self.exclusions_for(req)
         pref = req["preference"] if req["preference"] in ("fastest", "cheapest_on_time", "lowest_defect") else None
         rows = self.alloc.rank(batch, self.W, self.ledger.queues(), exclude=excl, preference=pref)
         ests = [r["estimate"] for r in rows]
         table = eligibility_table(self.W, batch["category"], batch["pieces"], exclude=excl)
+        for row in table:
+            src = self.session_excl.get(row["workshop_id"])
+            if src and row["reason"] == "excluded by request" and row["workshop_id"] not in req["excluded_workshops"]:
+                row["reason"] = f"excluded by {src['by']} in {src['source']} (this week)"
         d["tool_calls"].append({"tool": "eligibility_table", "input": {"category": batch["category"], "pieces": batch["pieces"],
                                 "exclude": sorted(excl)}, "output": table})
         d["tool_calls"].append({"tool": "rank_candidates", "input": {"objective": self.alloc.objective, "preference": pref},
                                 "output": [e.as_dict() for e in ests]})
         d["candidates"] = [e.as_dict() for e in ests]
+        d["eligibility"] = table
         d["batch"] = {k: (v.isoformat() if isinstance(v, date) else v) for k, v in batch.items()}
         excl_text = ""
         if excl:
@@ -169,10 +214,9 @@ class Desk:
             if not ok:
                 d["subtype"] = "ineligible_suggestion"
                 d["recommended"] = ests[0].workshop_id if ests else None
-                alt = self._alt_text(ests)
+                d["refused_workshop"] = fw
                 others = [w for w in sorted(excl) if w != fw]
-                other_text = excl_text if others else ""
-                d["explanation"] = f"{self.name(fw)} can't take {order.order_id}: {why}. {alt}{other_text}"
+                d["explanation"] = f"{self.name(fw)} can't take {order.order_id}: {why}. {self._alt_text(ests)}{excl_text if others else ''}"
                 return d
 
         # 6. extract: on time or not
@@ -182,7 +226,7 @@ class Desk:
             return d
         best = ests[0]
         d["recommended"] = best.workshop_id
-        if any(e.on_time for e in ests) and best.on_time:
+        if best.on_time:
             d["subtype"] = "allocate"
             runner = next((e for e in ests[1:]), None)
             why_pref = {"fastest": "fastest turnaround", "cheapest_on_time": "cheapest workshop that still makes the date",
@@ -196,8 +240,8 @@ class Desk:
         else:
             d["subtype"] = "no_on_time_option"
             late_word = "already past due" if batch["due_date"] < TODAY else f"due {batch['due_date']}"
-            opts = f"Earliest is {best.name}: back {best.promised_date}, {days(best.late_days)} late ({best.finish_days:.1f} days)."
-            d["explanation"] = (f"No workshop can return {order.order_id} on time ({late_word}). {opts} "
+            d["explanation"] = (f"No workshop can return {order.order_id} on time ({late_word}). "
+                                f"Earliest is {best.name}: back {best.promised_date}, {days(best.late_days)} late ({best.finish_days:.1f} days). "
                                 "Options: accept the delay, renegotiate the date with the customer, relax a constraint, or escalate."
                                 + excl_text)
             if req["preference"] == "split":
@@ -206,9 +250,9 @@ class Desk:
                 if s.get("possible"):
                     d["explanation"] += (f" Splitting across two shops gains {s['gain_days']:.1f} days"
                                          + (", so it doesn't help." if s["gain_days"] < 0.5 else "."))
-            if fw is None and any(w in self.session_excl for w in self.W):
+            if fw is None and self.session_excl:
                 lifted = [r["estimate"] for r in self.alloc.rank(batch, self.W, self.ledger.queues(),
-                                                                   exclude=set(req["excluded_workshops"]), preference=pref)]
+                                                                 exclude=set(req["excluded_workshops"]), preference=pref)]
                 d["tool_calls"].append({"tool": "rank_candidates", "input": {"exclude": sorted(req["excluded_workshops"]), "note": "session ban lifted"},
                                         "output": [e.as_dict() for e in lifted]})
                 if lifted and lifted[0].workshop_id in self.session_excl:
@@ -222,37 +266,154 @@ class Desk:
             return "No other eligible workshop can take it."
         on = [e for e in ests if e.on_time]
         e = on[0] if on else ests[0]
-        return (f"Alternative: {e.name}, back {e.promised_date}" + (" (on time)." if e.on_time else f" ({days(e.late_days)} late; nothing makes the date)."))
+        return (f"Alternative: {e.name}, back {e.promised_date}"
+                + (" (on time)." if e.on_time else f" ({days(e.late_days)} late; nothing makes the date)."))
 
-    # ---------------------------------------------------------------- one request
-    def handle(self, line: str) -> dict:
-        req = self.parser(line, list(self.history))
-        d = self.route(req)
+    def _finish(self, d: dict, req: dict) -> dict:
         d["official_behaviour"] = OFFICIAL[d["subtype"]]
+        d["status"] = STATUS[d["subtype"]]
         d["number_check"] = number_check(d["explanation"], d["tool_calls"], d.get("batch"), req)
-        if d["subtype"] == "allocate":
-            order = self.O[d["order_id"]]
-            batch = self._batch(order, req)
-            rec = self.ledger.commit(request_id=req["request_id"], order_id=order.order_id, workshop_id=d["recommended"],
-                                     category=order.category, pieces=batch["pieces"], sent_date=TODAY, due_date=batch["due_date"],
-                                     requester=req["requester"], confirmed_by="demo-dispatcher", reason=d["explanation"],
-                                     constraints={"excluded": sorted(set(req["excluded_workshops"]) | set(self.session_excl)),
-                                                  "session": {k: v for k, v in self.session_excl.items()}},
-                                     candidates=d["candidates"], objective={"name": self.alloc.objective, "preference": req["preference"]},
-                                     model_version=req["parser"])
-            d["committed"] = rec["audit_id"]
+        return d
+
+    # ---------------------------------------------------------------- dispatcher API
+    def propose(self, line: str) -> dict:
+        """Route one chat line. Writes nothing to the ledger."""
+        req = self.parser(line, list(self.history))
+        if not req.get("request_id"):
+            req["request_id"] = self.next_request_id()
+        d = self._finish(self.route(req), req)
         if req["constraint_scope"] == "session":
             for wid in req["excluded_workshops"]:
                 by = "Boss" if re.search(r"\bboss\b", req["raw_text"], re.I) else req["requester"]
                 self.session_excl[wid] = {"by": by, "source": req["request_id"]}
-                d["flags"].append(f"session constraint recorded: exclude {wid} (by {by})")
+                d["flags"].append(f"session constraint recorded: exclude {self.name(wid)} (by {by})")
+        d["received_at"] = datetime.now().isoformat(timespec="seconds")
         self.history.append(req)
         self.decisions[req["request_id"]] = d
         return d
 
+    def is_open(self, d: dict) -> bool:
+        return not d["committed"] and d["status"] not in HUMAN_STATUSES
 
-def days(n: int) -> str:
-    return f"{n} day" if n == 1 else f"{n} days"
+    def refresh(self, request_id: str) -> dict:
+        """Re-route an open request against the current ledger and constraints."""
+        d = self.decisions[request_id]
+        if not self.is_open(d):
+            return d
+        req = d["parsed"]
+        new = self._finish(self.route(req), req)
+        new["received_at"] = d.get("received_at")
+        new["flags"] += [f for f in d["flags"] if f.startswith("session constraint recorded")]
+        if new["recommended"] != d["recommended"] or new["subtype"] != d["subtype"]:
+            new["flags"].append(f"updated since received: was {d['subtype']} / {d['recommended'] or '-'}")
+        self.decisions[request_id] = new
+        return new
+
+    def refresh_all(self) -> None:
+        for rid in list(self.decisions):
+            self.refresh(rid)
+
+    def new_message(self, sender: str, text: str) -> dict:
+        line = f"{self.next_request_id()} [{datetime.now():%H:%M}] {sender}: {text}"
+        return self.propose(line)
+
+    def follow_up(self, request_id: str, text: str, by: str = "dispatcher") -> dict:
+        """The requester's answer to a clarifying question, processed as a new message."""
+        d = self.decisions[request_id]
+        new = self.new_message(d["requester"], text)
+        new["flags"].append(f"answer to {request_id}")
+        d["status"] = "reply_sent"
+        d["follow_up"] = new["request_id"]
+        self._log(request_id, "follow_up", by, f"{new['request_id']}: {text}")
+        return new
+
+    def mark(self, request_id: str, status: str, by: str = "dispatcher", note: str = "") -> dict:
+        if status not in HUMAN_STATUSES:
+            raise ValueError(f"unknown status {status!r}")
+        d = self.decisions[request_id]
+        if d["committed"]:
+            raise ValueError(f"{request_id} is already committed as {d['committed']}")
+        d["status"] = status
+        self._log(request_id, status, by, note)
+        return d
+
+    def confirm(self, request_id: str, workshop_id: Optional[str] = None, by: str = "dispatcher",
+                accept_late: bool = False) -> dict:
+        """Human confirmation. Re-estimates against the current ledger, then commits."""
+        d = self.refresh(request_id)
+        if d["committed"]:
+            raise ValueError(f"{request_id} already committed as {d['committed']}")
+        if d["subtype"] not in ("allocate", "no_on_time_option", "ineligible_suggestion"):
+            raise ValueError(f"{request_id} is {d['subtype']}; there is nothing to commit")
+        wid = workshop_id or d["recommended"]
+        if wid is None:
+            raise ValueError(f"{request_id} has no eligible workshop")
+        req = d["parsed"]
+        order = self.O[d["order_id"]]
+        batch = self._batch(order, req)
+        ok, why = check_eligibility(self.W[wid], batch["category"], batch["pieces"])
+        if not ok:
+            raise ValueError(f"{self.name(wid)} cannot take {order.order_id}: {why}")
+        if wid in self.exclusions_for(req):
+            src = self.session_excl.get(wid)
+            raise ValueError(f"{self.name(wid)} is excluded" + (f" by {src['by']} ({src['source']}); lift the constraint first" if src else " by this request"))
+        fresh = estimate(self.W[wid], batch["pieces"], self.ledger.queues()[wid], TODAY, batch["due_date"])
+        if not fresh.on_time and not accept_late:
+            raise ValueError(f"{self.name(wid)} would be {days(fresh.late_days)} late; confirm again accepting the delay")
+        note = []
+        if wid != d["recommended"]:
+            note.append(f"dispatcher chose {self.name(wid)} over the recommended {self.name(d['recommended'])}")
+        if not fresh.on_time:
+            note.append(f"delay accepted: {days(fresh.late_days)} late")
+        rec = self.ledger.commit(request_id=request_id, order_id=order.order_id, workshop_id=wid,
+                                 category=order.category, pieces=batch["pieces"], sent_date=TODAY, due_date=batch["due_date"],
+                                 requester=req["requester"], confirmed_by=by, reason=" | ".join([d["explanation"]] + note),
+                                 constraints={"excluded": sorted(self.exclusions_for(req)), "session": copy.deepcopy(self.session_excl)},
+                                 candidates=d["candidates"], objective={"name": self.alloc.objective, "preference": req["preference"]},
+                                 model_version=req["parser"])
+        self.alloc.load[wid] = self.alloc.load.get(wid, 0) + batch["pieces"]
+        d["committed"] = rec["audit_id"]
+        d["status"] = "committed"
+        d["confirmed_workshop"] = wid
+        d["confirmed_by"] = by
+        d["confirm_notes"] = note
+        d["final_estimate"] = fresh.as_dict()
+        self._log(request_id, "confirm", by, f"{rec['audit_id']} -> {self.name(wid)}" + (f" ({'; '.join(note)})" if note else ""))
+        return rec
+
+    def reassign(self, audit_id: str, workshop_id: str, by: str = "dispatcher", reason: str = "reassigned by dispatcher") -> dict:
+        old = next(r for r in self.ledger.records if r["audit_id"] == audit_id)
+        ok, why = check_eligibility(self.W[workshop_id], old["category"], old["pieces"])
+        if not ok:
+            raise ValueError(f"{self.name(workshop_id)} cannot take {old['order_id']}: {why}")
+        rec = self.ledger.reassign(audit_id, workshop_id, confirmed_by=by, reason=reason)
+        for d in self.decisions.values():
+            if d["committed"] == audit_id:
+                d["committed"] = rec["audit_id"]
+                d["confirmed_workshop"] = workshop_id
+                d["confirm_notes"] = (d.get("confirm_notes") or []) + [f"reassigned from {audit_id} to {self.name(workshop_id)}"]
+                d["final_estimate"] = rec["estimate"]
+        self._log(old["request_id"], "reassign", by, f"{audit_id} -> {rec['audit_id']} {self.name(workshop_id)}: {reason}")
+        # audit ids of the replayed records changed; keep decisions pointing at live records
+        live = {r["request_id"]: r["audit_id"] for r in self.ledger.records if r["status"] == "committed"}
+        for d in self.decisions.values():
+            if d["committed"] and d["request_id"] in live:
+                d["committed"] = live[d["request_id"]]
+        self.refresh_all()
+        return rec
+
+    def lift_constraint(self, workshop_id: str, by: str = "dispatcher") -> dict:
+        src = self.session_excl.pop(workshop_id, None)
+        self._log(src["source"] if src else None, "lift_constraint", by, f"{self.name(workshop_id)} (set by {src['by'] if src else '-'})")
+        self.refresh_all()
+        return {"workshop_id": workshop_id, "was": src, "lifted_by": by}
+
+    def handle(self, line: str) -> dict:
+        """Propose, and auto-confirm when there is an on-time option (unattended replay)."""
+        d = self.propose(line)
+        if d["subtype"] == "allocate":
+            self.confirm(d["request_id"], by="demo-dispatcher")
+        return self.decisions[d["request_id"]]
 
 
 NUM_RE = re.compile(r"(?<![A-Za-z\-])\d+(?:\.\d+)?")
@@ -268,10 +429,17 @@ def number_check(text: str, tool_calls: list, batch: Optional[dict], req: dict) 
             allowed |= {f"{f:.1f}", f"{f:.0f}", str(int(f)) if f.is_integer() else x, f"{f * 100:.0f}"}
         except ValueError:
             pass
-    found = NUM_RE.findall(re.sub(r"\b(ORD|R|W|A)-?\d+\b", "", re.sub(r"\d{4}-\d{2}-\d{2}", "", text)))
+    found = NUM_RE.findall(re.sub(r"\b(ORD|R|W|A|H)-?\d+\b", "", re.sub(r"\d{4}-\d{2}-\d{2}", "", text)))
     dates = re.findall(r"\d{4}-\d{2}-\d{2}", text)
     bad = [n for n in found if n not in allowed] + [x for x in dates if x not in blob]
     return {"numbers": len(found) + len(dates), "untraced": bad, "ok": not bad}
+
+
+def inbox_lines() -> List[str]:
+    src = ROOT / "data" / "dispatch_requests.txt"
+    lines = [ln for ln in src.read_text(encoding="utf-8").splitlines() if ln.strip() and not ln.startswith("#")]
+    lines.sort(key=lambda ln: re.search(r"\[(\d\d:\d\d)\]", ln).group(1))
+    return lines
 
 
 def load_gold():
@@ -289,51 +457,63 @@ def load_gold():
     return lab, fac
 
 
+def score(decisions: Dict[str, dict]) -> dict:
+    """Development check against the draft gold. Not the held-out evaluation."""
+    gold = load_gold()
+    if not gold:
+        return {"available": False, "rows": []}
+    lab, fac = gold
+    rows = []
+    for rid, d in decisions.items():
+        if rid not in lab:
+            continue
+        g_beh = lab[rid].get("official_behaviour", "")
+        g_sub = lab[rid].get("internal_subtype", "")
+        g_ws = fac.get(rid, {}).get("recommended", "")
+        ws_ok = None
+        if g_ws and d["subtype"] in ("allocate", "no_on_time_option", "ineligible_suggestion"):
+            ws_ok = d["recommended"] == g_ws
+        rows.append({"request_id": rid, "behaviour": d["official_behaviour"], "gold_behaviour": g_beh,
+                     "subtype": d["subtype"], "gold_subtype": g_sub, "recommended": d["recommended"],
+                     "gold_recommended": g_ws, "behaviour_ok": d["official_behaviour"] == g_beh, "workshop_ok": ws_ok,
+                     "numbers_ok": d["number_check"]["ok"]})
+    n = len(rows)
+    ws_rows = [r for r in rows if r["workshop_ok"] is not None]
+    return {"available": True, "n": n, "behaviour": sum(1 for r in rows if r["behaviour_ok"]),
+            "workshop": sum(1 for r in ws_rows if r["workshop_ok"]), "workshop_n": len(ws_rows),
+            "numbers": sum(1 for r in rows if r["numbers_ok"]), "rows": rows}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--llm", action="store_true", help="use GPT-5 nano for parsing (costs money)")
     ap.add_argument("--only", default=None, help="print full detail for one request id, e.g. R12")
+    ap.add_argument("--objective", default="lateness", choices=list(OBJECTIVES))
     args = ap.parse_args()
 
-    if args.llm:
-        client = LLMClient(provider="openai")
-        parser = client.parse_request
-    else:
-        client = None
-        parser = RuleBasedParser().parse
-    desk = Desk(parser)
-
-    src = ROOT / "data" / "dispatch_requests.txt"
-    lines = [ln for ln in src.read_text(encoding="utf-8").splitlines() if ln.strip() and not ln.startswith("#")]
-    lines.sort(key=lambda ln: re.search(r"\[(\d\d:\d\d)\]", ln).group(1))
-    for ln in lines:
+    client = LLMClient(provider="openai") if args.llm else None
+    desk = Desk(parser=client.parse_request if client else None, objective=args.objective)
+    for ln in inbox_lines():
         desk.handle(ln)
 
     run_dir = ROOT / "eval" / "runs" / datetime.now().strftime("%Y%m%d-%H%M%S")
     run_dir.mkdir(parents=True, exist_ok=True)
     with open(run_dir / "decisions.jsonl", "w", encoding="utf-8") as f:
         for d in desk.decisions.values():
-            f.write(json.dumps({k: v for k, v in d.items() if k != "parsed"} | {"parsed": d["parsed"]}, ensure_ascii=False, default=str) + "\n")
+            f.write(json.dumps(d, ensure_ascii=False, default=str) + "\n")
     desk.ledger.save(run_dir / "audit.json")
 
-    gold = load_gold()
-    md = [f"# Desk run {run_dir.name}", "", f"parser: {'llm:' + client.model if client else 'rules'} · objective: lateness · today {TODAY}", ""]
-    rows = []
+    s = score(desk.decisions)
+    by_id = {r["request_id"]: r for r in s["rows"]}
+    md = [f"# Desk run {run_dir.name}", "",
+          f"parser: {'llm:' + client.model if client else 'rules'} · objective: {args.objective} · today {TODAY}", ""]
     for rid, d in desk.decisions.items():
-        g_beh = g_sub = g_ws = ""
-        if gold:
-            lab, fac = gold
-            g_beh = lab.get(rid, {}).get("official_behaviour", "")
-            g_sub = lab.get(rid, {}).get("internal_subtype", "")
-            g_ws = fac.get(rid, {}).get("recommended", "")
-        beh_ok = (d["official_behaviour"] == g_beh) if gold else None
-        ws_ok = None
-        if gold and g_ws and d["subtype"] in ("allocate", "no_on_time_option", "ineligible_suggestion"):
-            ws_ok = d["recommended"] == g_ws
-        rows.append((rid, d, g_beh, g_sub, g_ws, beh_ok, ws_ok))
+        g = by_id.get(rid, {})
         md += [f"## {rid} [{d['timestamp']}] {d['requester']}", f"> {d['raw_text']}", "",
-               f"- behaviour: **{d['official_behaviour']}** / {d['subtype']}" + (f"  (gold: {g_beh} / {g_sub})" if gold else ""),
-               f"- order: {d['order_id'] or '-'} · recommended: {d['recommended'] or '-'}" + (f" (gold: {g_ws or '-'})" if gold else ""),
+               f"- behaviour: **{d['official_behaviour']}** / {d['subtype']}"
+               + (f"  (gold: {g.get('gold_behaviour')} / {g.get('gold_subtype')})" if g else ""),
+               f"- order: {d['order_id'] or '-'} · recommended: {d['recommended'] or '-'}"
+               + (f" (gold: {g.get('gold_recommended') or '-'})" if g else ""),
                f"- explanation: {d['explanation']}",
                f"- numbers traced to tools: {'yes' if d['number_check']['ok'] else 'NO ' + str(d['number_check']['untraced'])}",
                f"- flags: {'; '.join(d['flags']) or '-'}",
@@ -342,28 +522,26 @@ def main():
 
     if args.only:
         d = desk.decisions[args.only]
-        print(json.dumps({k: d[k] for k in ("request_id", "official_behaviour", "subtype", "order_id", "recommended", "explanation",
-                                            "flags", "number_check", "committed")}, ensure_ascii=False, indent=2, default=str))
+        print(json.dumps({k: d[k] for k in ("request_id", "official_behaviour", "subtype", "status", "order_id", "recommended",
+                                            "explanation", "flags", "number_check", "committed")},
+                         ensure_ascii=False, indent=2, default=str))
         print("\ntool calls:")
         for t in d["tool_calls"]:
             print("  -", t["tool"], json.dumps(t.get("input"), ensure_ascii=False, default=str))
         return
 
     print(f"{'id':<4} {'behaviour':<18} {'subtype':<22} {'order':<8} {'rec':<4} {'gold':<18} {'gold ws':<7} {'nums':<5} ledger")
-    for rid, d, g_beh, g_sub, g_ws, beh_ok, ws_ok in rows:
-        mark = "" if beh_ok is None else ("ok " if beh_ok else "XX ")
-        wmark = "" if ws_ok is None else ("" if ws_ok else " XX")
+    for rid, d in desk.decisions.items():
+        g = by_id.get(rid, {})
+        mark = "" if not g else ("ok " if g["behaviour_ok"] else "XX ")
+        wmark = "" if not g or g["workshop_ok"] is None else ("" if g["workshop_ok"] else " XX")
         print(f"{rid:<4} {mark}{d['official_behaviour']:<15} {d['subtype']:<22} {d['order_id'] or '-':<8} {d['recommended'] or '-':<4} "
-              f"{g_beh:<18} {g_ws or '-':<4}{wmark:<3} {'ok' if d['number_check']['ok'] else 'NO':<5} {d['committed'] or ''}")
-    if gold:
-        n = len(rows)
-        beh = sum(1 for r in rows if r[5])
-        ws_rows = [r for r in rows if r[6] is not None]
-        ws = sum(1 for r in ws_rows if r[6])
-        nums = sum(1 for r in rows if r[1]["number_check"]["ok"])
-        print(f"\nbehaviour matches draft gold: {beh}/{n}")
-        print(f"recommended workshop matches (where both have one): {ws}/{len(ws_rows)}")
-        print(f"explanations with every number traced to a tool output: {nums}/{n}")
+              f"{g.get('gold_behaviour', ''):<18} {g.get('gold_recommended') or '-':<4}{wmark:<3} "
+              f"{'ok' if d['number_check']['ok'] else 'NO':<5} {d['committed'] or ''}")
+    if s["available"]:
+        print(f"\nbehaviour matches draft gold: {s['behaviour']}/{s['n']}")
+        print(f"recommended workshop matches (where both have one): {s['workshop']}/{s['workshop_n']}")
+        print(f"explanations with every number traced to a tool output: {s['numbers']}/{s['n']}")
     print(f"ledger writes: {len(desk.ledger.records)}  session constraints: {desk.session_excl}")
     if client:
         print(f"LLM spent ${client.spent_usd:.4f}, fallbacks {sum(1 for c in client.calls if 'outcome' in c)}")

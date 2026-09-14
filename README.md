@@ -4,7 +4,16 @@
 
 团队：屈妍玥 · 张锦若 · 吴杰 · 李岩 · 吴若晗 · 许佩瑶
 
-> **状态：第一周（2026-09-14）。** 仓库内容由 Claude 起草。已在 Python 3.12 上跑通全部测试、官方模拟器、基线对比与压力场景，结果见 [`docs/results_week1.md`](docs/results_week1.md)。GPT-5 nano 调用尚未验证。
+> **状态：第一周（2026-09-14）。** 仓库内容由 Claude 起草。已在 Python 3.12 上跑通全部测试、官方模拟器、基线对比、压力场景和调度员界面，结果见 [`docs/results_week1.md`](docs/results_week1.md)。
+
+## 打开调度员界面
+
+```bash
+python -m pip install -r requirements.txt
+streamlit run app/streamlit_app.py
+```
+
+浏览器会打开 http://localhost:8501 。点左侧 **Load morning inbox** 收到 4 月 1 日的 30 条群聊，然后逐条点开处理。**系统只推荐，确认按钮按下之前不会派出任何一单。** 页面说明和演示脚本见 [`docs/ui_guide.md`](docs/ui_guide.md)。
 
 ## 快速开始
 
