@@ -155,7 +155,7 @@ def _commit(L, rid, oid, wid):
 def test_protocol_ledger_changes_r12_and_r21():
     """eval/protocol.md: the gold answer depends on earlier commits and on the session ban."""
     L = Ledger(W, TODAY)
-    a = Allocator("lateness")
+    a = Allocator("lateness_v1")          # earliest finish; the mechanics below do not depend on the rule
     # R12 processed in isolation -> Nimble Needle
     assert a.rank(_batch("ORD-053"), W, L.queues(), exclude=["W1"])[0]["estimate"].workshop_id == "W6"
     # R09 commits 150 vests to Nimble Needle first
@@ -177,7 +177,7 @@ def test_protocol_ledger_changes_r12_and_r21():
 
 def test_r25_ban_changes_winner():
     L = Ledger(W, TODAY)
-    a = Allocator("lateness")
+    a = Allocator("lateness_v1")
     _commit(L, "R09", "ORD-045", "W6")
     _commit(L, "R12", "ORD-053", "W5")
     with_ban = a.rank(_batch("ORD-109"), W, L.queues(), exclude=["W1", "W3"])

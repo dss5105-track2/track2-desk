@@ -38,8 +38,8 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from kernel.register import load_workshops, check_eligibility, eligibility_table  # noqa: E402
-from kernel.orders import load_orders, find_orders, state_checks, TODAY  # noqa: E402
-from kernel.allocator import Allocator, OBJECTIVES  # noqa: E402
+from kernel.orders import load_orders, find_orders, last_week, state_checks, TODAY  # noqa: E402
+from kernel.allocator import Allocator, OBJECTIVES, flexibility  # noqa: E402
 from kernel.estimator import estimate, split_estimate  # noqa: E402
 from kernel.ledger import Ledger  # noqa: E402
 from llm.llm_client import RuleBasedParser, LLMClient  # noqa: E402
@@ -71,6 +71,7 @@ class Desk:
         self.history: List[dict] = []               # parsed requests, for cross-message memory
         self.decisions: Dict[str, dict] = {}
         self.actions: List[dict] = []               # every human action, ledger or not
+        self.arrival: Dict[str, int] = {}           # request_id -> position in the inbox
         self.seq = 0
 
     # ---------------------------------------------------------------- helpers
@@ -102,6 +103,20 @@ class Desk:
 
     def exclusions_for(self, req: dict) -> set:
         return set(req["excluded_workshops"]) | set(self.session_excl)
+
+    def _set_later(self, wid: str, req: dict) -> bool:
+        """True when the standing constraint on wid was set by a message that arrived after req."""
+        src = self.session_excl.get(wid)
+        mine = self.arrival.get(req.get("request_id"))
+        return bool(src and mine is not None and src.get("seq", -1) > mine)
+
+    def _excl_label(self, wid: str, req: dict) -> str:
+        src = self.session_excl.get(wid)
+        if src and wid not in req["excluded_workshops"]:
+            when = (f", set at {src['time']}, after this request arrived; it applies while the request is open"
+                    if self._set_later(wid, req) else "")
+            return f"{self.name(wid)} (excluded by {src['by']} in {src['source']}{when})"
+        return f"{self.name(wid)} (excluded in this request)"
 
     def _log(self, request_id: Optional[str], action: str, by: str, note: str = "") -> dict:
         entry = {"at": datetime.now().isoformat(timespec="seconds"), "request_id": request_id, "action": action, "by": by, "note": note}
@@ -136,18 +151,31 @@ class Desk:
         if order is None:
             prior = next((h for h in self.history if h["request_id"] == req.get("references_prior")), None)
             prior_dec = self.decisions.get(prior["request_id"]) if prior else None
-            if NEW_ORDER_RE.search(req["raw_text"]) or (prior_dec and prior_dec["subtype"] == "missing_fields"):
-                d["subtype"] = "missing_fields"
-                ref = f" (follow-up to {prior['request_id']})" if prior else ""
-                d["explanation"] = (f"I can't book capacity yet{ref}: I need the order number, product, piece count and due date. "
-                                    "Capacity depends on all four, so I won't guess.")
-                return d
-            cands = find_orders(self.O, customer=req["customer"], product=req["product"]) if (req["customer"] or req["product"]) else []
-            d["tool_calls"].append({"tool": "resolve_order_reference", "input": {"customer": req["customer"], "product": req["product"]},
+            low = req["raw_text"].lower()
+            window = last_week(TODAY) if "last week" in low else (None, None)
+            big = bool(re.search(r"\bbig\b|\blarge\b|\bbiggest\b", low))
+            cands = (find_orders(self.O, customer=req["customer"], product=req["product"], placed_from=window[0], placed_to=window[1],
+                                 largest_first=big) if (req["customer"] or req["product"] or window[0]) else [])
+            d["tool_calls"].append({"tool": "resolve_order_reference",
+                                    "input": {"customer": req["customer"], "product": req["product"],
+                                              "placed_from": window[0].isoformat() if window[0] else None,
+                                              "placed_to": window[1].isoformat() if window[1] else None, "largest_first": big},
                                     "output": {"count": len(cands),
                                                "orders": [{"order_id": o.order_id, "customer": o.customer, "product": o.product,
                                                            "pieces": o.pieces, "due_date": o.due_date.isoformat(), "stage": o.current_stage}
                                                           for o in cands]}})
+            listing = "; ".join(f"{o.order_id} {o.customer} {o.product} {o.pieces} pcs due {o.due_date}" for o in cands)
+            # not an order yet, or the message leaves quantity / date undefined: ask for the details, do not guess an order
+            new_work = bool(NEW_ORDER_RE.search(req["raw_text"]) or ({"pieces", "due_date"} & set(req["missing_fields"]))
+                            or (prior_dec and prior_dec["subtype"] == "missing_fields" and not cands))
+            if new_work:
+                d["subtype"] = "missing_fields"
+                d["order_candidates"] = [o.order_id for o in cands]
+                ref = f" (follow-up to {prior['request_id']})" if prior else ""
+                d["explanation"] = (f"I can't book capacity yet{ref}: I need the order number, piece count and due date. "
+                                    "Capacity depends on them, so I won't guess."
+                                    + (f" If you mean an order already in progress, say which: {listing}." if cands else ""))
+                return d
             if len(cands) == 1:
                 order = cands[0]
                 d["order_id"] = order.order_id
@@ -156,8 +184,10 @@ class Desk:
                 d["subtype"] = "ambiguous_reference"
                 d["order_candidates"] = [o.order_id for o in cands]
                 if cands:
-                    listing = "; ".join(f"{o.order_id} {o.customer} {o.product} {o.pieces} pcs due {o.due_date}" for o in cands)
-                    d["explanation"] = f"Which order do you mean? {len(cands)} in-progress orders match: {listing}."
+                    scope = f" placed last week ({window[0]} to {window[1]}), largest first" if window[0] else ""
+                    d["explanation"] = f"Which order do you mean? {len(cands)} in-progress orders match{scope}: {listing}."
+                    if prior_dec and prior_dec["subtype"] == "missing_fields":
+                        d["explanation"] += f" Or is this the new work from {prior['request_id']}? Then I need the piece count and due date."
                 else:
                     d["explanation"] = "Which order do you mean? The message doesn't name an order, customer or product I can match."
                 return d
@@ -166,7 +196,9 @@ class Desk:
         flags = state_checks(order, TODAY, self.ledger)
         d["tool_calls"].append({"tool": "state_checks", "input": order.order_id, "output": flags})
         d["flags"] += flags + self._mismatch_notes(order, req)
-        conflict = [f for f in flags if "PACKING" in f or "COMPLETE" in f or "already dispatched" in f]
+        # v3 data dictionary: the inbox is about orders still in progress, so an in-house stage (even PACKING)
+        # is context for the dispatcher, not a reason to stop. A finished order or a repeat dispatch is.
+        conflict = [f for f in flags if "COMPLETE" in f or "already dispatched" in f]
         if conflict:
             d["subtype"] = "state_conflict"
             d["explanation"] = f"Before I place {order.order_id}: {conflict[0]}. Do you still want it sent outside?"
@@ -181,6 +213,10 @@ class Desk:
 
         batch = self._batch(order, req)
         excl = self.exclusions_for(req)
+        if self.session_excl:
+            d["tool_calls"].append({"tool": "standing_constraints",
+                                    "output": {wid: {"workshop": self.name(wid), "by": v["by"], "source": v["source"], "time": v.get("time", "")}
+                                               for wid, v in self.session_excl.items()}})
         pref = req["preference"] if req["preference"] in ("fastest", "cheapest_on_time", "lowest_defect") else None
         rows = self.alloc.rank(batch, self.W, self.ledger.queues(), exclude=excl, preference=pref)
         ests = [r["estimate"] for r in rows]
@@ -189,6 +225,8 @@ class Desk:
             src = self.session_excl.get(row["workshop_id"])
             if src and row["reason"] == "excluded by request" and row["workshop_id"] not in req["excluded_workshops"]:
                 row["reason"] = f"excluded by {src['by']} in {src['source']} (this week)"
+                if self._set_later(row["workshop_id"], req):
+                    row["reason"] += "; set after this request arrived"
         d["tool_calls"].append({"tool": "eligibility_table", "input": {"category": batch["category"], "pieces": batch["pieces"],
                                 "exclude": sorted(excl)}, "output": table})
         d["tool_calls"].append({"tool": "rank_candidates", "input": {"objective": self.alloc.objective, "preference": pref},
@@ -198,12 +236,11 @@ class Desk:
         d["batch"] = {k: (v.isoformat() if isinstance(v, date) else v) for k, v in batch.items()}
         excl_text = ""
         if excl:
-            parts = []
+            excl_text = " Not considered: " + ", ".join(self._excl_label(wid, req) for wid in sorted(excl)) + "."
             for wid in sorted(excl):
-                src = self.session_excl.get(wid)
-                parts.append(f"{self.name(wid)} (excluded by {src['by']} in {src['source']})" if src and wid not in req["excluded_workshops"]
-                             else f"{self.name(wid)} (excluded in this request)")
-            excl_text = " Not considered: " + ", ".join(parts) + "."
+                if self._set_later(wid, req):
+                    d["flags"].append(f"standing constraint on {self.name(wid)} was set later, in {self.session_excl[wid]['source']}; "
+                                      "it applies because this request is still open")
 
         # 5. ineligible suggestion
         fw = req["forced_workshop"]
@@ -229,14 +266,24 @@ class Desk:
         if best.on_time:
             d["subtype"] = "allocate"
             runner = next((e for e in ests[1:]), None)
-            why_pref = {"fastest": "fastest turnaround", "cheapest_on_time": "cheapest workshop that still makes the date",
-                        "lowest_defect": "lowest defect rate among on-time options"}.get(pref, "earliest on-time finish")
-            d["explanation"] = (f"Recommend {best.name} for {order.order_id} ({batch['pieces']} pcs): {why_pref}. "
+            fastest = min((e for e in ests if e.on_time), key=lambda e: e.finish_days)
+            d["why"] = self._why(rows[0], pref, best, fastest)
+            d["explanation"] = (f"Recommend {best.name} for {order.order_id} ({batch['pieces']} pcs): {self._why(rows[0], pref, best, fastest)}. "
                                 f"Estimate {best.finish_days:.1f} days = queue {best.queue_days:.1f} + work {best.work_days:.1f} "
-                                f"+ expected rework {best.rework_days:.1f} + transport {best.lead_days:.0f}; back {best.promised_date}, "
-                                f"due {batch['due_date']}. Cost {best.cost:.0f}, defect rate {best.defect_rate:.0%}."
-                                + (f" Next best: {runner.name}, {runner.finish_days:.1f} days, back {runner.promised_date}." if runner else "")
+                                f"+ expected rework {best.rework_days:.1f} + transport {best.lead_days:.0f}; back {best.promised_date}"
+                                + (f" ({best.worst_date} if the batch is reworked)" if best.worst_date != best.promised_date else "")
+                                + f", due {batch['due_date']}. Cost {best.cost:.0f}, defect rate {best.defect_rate:.0%}."
+                                + (f" Fastest: {fastest.name}, {fastest.finish_days:.1f} days, back {fastest.promised_date}."
+                                   if fastest.workshop_id != best.workshop_id else
+                                   (f" Next best: {runner.name}, {runner.finish_days:.1f} days, back {runner.promised_date}." if runner else ""))
                                 + excl_text)
+            if req["preference"] == "split":
+                s = split_estimate(self.W, batch["category"], batch["pieces"], self.ledger.queues(), TODAY, batch["due_date"], exclude=excl)
+                d["tool_calls"].append({"tool": "split_estimate", "output": s})
+                d["explanation"] += f" No split needed: {best.name} alone is on time."
+                if s.get("possible") and s["gain_days"] >= 0.5:
+                    d["explanation"] += (f" A two-shop split would finish {s['gain_days']:.1f} days sooner than the fastest single shop; "
+                                         "the shared simulator cannot split, so that is a chat-layer estimate.")
         else:
             d["subtype"] = "no_on_time_option"
             late_word = "already past due" if batch["due_date"] < TODAY else f"due {batch['due_date']}"
@@ -261,6 +308,23 @@ class Desk:
                                          + (", on time." if l0.on_time else f", {days(l0.late_days)} late."))
         return d
 
+    def _why(self, row: dict, pref: Optional[str], best, fastest) -> str:
+        """One clause saying why this workshop is first. No numbers: those come from the estimate."""
+        if pref:
+            return {"fastest": "fastest turnaround", "cheapest_on_time": "cheapest workshop that still makes the date",
+                    "lowest_defect": "lowest defect rate among on-time options"}[pref]
+        if "tier" not in row:
+            return "earliest on-time finish" if self.alloc.objective == "lateness_v1" else f"best score under the {self.alloc.objective} objective"
+        safe = ("on time even if the batch is reworked" if row["tier"] == 0
+                else "on time, though a rework would make it late (no eligible shop is safe against that)")
+        if fastest.workshop_id == best.workshop_id:
+            return safe + "; earliest finish among those"
+        w = self.W[best.workshop_id]
+        only = "it only makes " + "+".join(sorted(w.makes)) if len(w.makes) == 1 else "it is the less flexible shop"
+        if w.max_batch is not None:
+            only += " and is capped at small batches"
+        return safe + f"; {only}, so the shops that can take other work stay free for tighter batches"
+
     def _alt_text(self, ests) -> str:
         if not ests:
             return "No other eligible workshop can take it."
@@ -281,13 +345,16 @@ class Desk:
         req = self.parser(line, list(self.history))
         if not req.get("request_id"):
             req["request_id"] = self.next_request_id()
+        self.arrival[req["request_id"]] = len(self.arrival)
         d = self._finish(self.route(req), req)
         if req["constraint_scope"] == "session":
             for wid in req["excluded_workshops"]:
                 by = "Boss" if re.search(r"\bboss\b", req["raw_text"], re.I) else req["requester"]
-                self.session_excl[wid] = {"by": by, "source": req["request_id"]}
+                self.session_excl[wid] = {"by": by, "source": req["request_id"], "time": req.get("timestamp") or "",
+                                          "seq": self.arrival[req["request_id"]]}
                 d["flags"].append(f"session constraint recorded: exclude {self.name(wid)} (by {by})")
         d["received_at"] = datetime.now().isoformat(timespec="seconds")
+        d["as_received"] = {"subtype": d["subtype"], "recommended": d["recommended"]}
         self.history.append(req)
         self.decisions[req["request_id"]] = d
         return d
@@ -303,6 +370,7 @@ class Desk:
         req = d["parsed"]
         new = self._finish(self.route(req), req)
         new["received_at"] = d.get("received_at")
+        new["as_received"] = d.get("as_received")
         new["flags"] += [f for f in d["flags"] if f.startswith("session constraint recorded")]
         if new["recommended"] != d["recommended"] or new["subtype"] != d["subtype"]:
             new["flags"].append(f"updated since received: was {d['subtype']} / {d['recommended'] or '-'}")
@@ -408,6 +476,47 @@ class Desk:
         self.refresh_all()
         return {"workshop_id": workshop_id, "was": src, "lifted_by": by}
 
+    def bulk_plan(self, only_safe: bool = True) -> dict:
+        """Which open on-time recommendations a bulk confirm would take, on the ledger as it stands.
+        Writes nothing. Held back: tight requests (a rework would make them late), and safe requests
+        whose workshop a tight request also counts on."""
+        self.refresh_all()
+        open_alloc = [(rid, d) for rid, d in self.decisions.items() if self.is_open(d) and d["subtype"] == "allocate"]
+        open_alloc.sort(key=lambda x: self.arrival.get(x[0], 10 ** 9))
+        best = {rid: next(c for c in d["candidates"] if c["workshop_id"] == d["recommended"]) for rid, d in open_alloc}
+        tight = {}
+        if only_safe:
+            for rid, d in open_alloc:
+                if not best[rid].get("safe"):
+                    tight.setdefault(d["recommended"], []).append(rid)
+        go, held = [], []
+        for rid, d in open_alloc:
+            if only_safe and not best[rid].get("safe"):
+                held.append({"request_id": rid, "reason": "tight: on time, but not if the batch is reworked"})
+            elif only_safe and tight.get(d["recommended"]):
+                held.append({"request_id": rid, "reason": f"would use {self.name(d['recommended'])}, which tight request "
+                                                          f"{', '.join(tight[d['recommended']])} also needs; decide that first"})
+            else:
+                go.append(rid)
+        return {"confirm": go, "held": held}
+
+    def confirm_all(self, by: str = "dispatcher", only_safe: bool = True) -> dict:
+        """One human click: confirm what bulk_plan() lists, in arrival order. Each request is re-estimated
+        against the ledger as it then stands and is left alone if it no longer qualifies."""
+        plan = self.bulk_plan(only_safe)
+        done, skipped = [], list(plan["held"])
+        for rid in plan["confirm"]:
+            d = self.refresh(rid)
+            c = next((c for c in d["candidates"] if c["workshop_id"] == d["recommended"]), None)
+            if d["subtype"] != "allocate" or (only_safe and not (c and c.get("safe"))):
+                skipped.append({"request_id": rid, "reason": "no longer safe after the earlier confirmations in this batch"})
+                continue
+            rec = self.confirm(rid, by=by)
+            done.append({"request_id": rid, "workshop_id": rec["workshop_id"], "audit_id": rec["audit_id"]})
+        self._log(None, "confirm_all", by, f"{len(done)} confirmed ({', '.join(x['request_id'] for x in done) or '-'}); "
+                                           f"{len(skipped)} left for an individual decision")
+        return {"confirmed": done, "skipped": skipped}
+
     def handle(self, line: str) -> dict:
         """Propose, and auto-confirm when there is an on-time option (unattended replay)."""
         d = self.propose(line)
@@ -429,7 +538,7 @@ def number_check(text: str, tool_calls: list, batch: Optional[dict], req: dict) 
             allowed |= {f"{f:.1f}", f"{f:.0f}", str(int(f)) if f.is_integer() else x, f"{f * 100:.0f}"}
         except ValueError:
             pass
-    found = NUM_RE.findall(re.sub(r"\b(ORD|R|W|A|H)-?\d+\b", "", re.sub(r"\d{4}-\d{2}-\d{2}", "", text)))
+    found = NUM_RE.findall(re.sub(r"\b(ORD-\d+|[A-Z]\d+)\b", "", re.sub(r"\d{4}-\d{2}-\d{2}", "", text)))
     dates = re.findall(r"\d{4}-\d{2}-\d{2}", text)
     bad = [n for n in found if n not in allowed] + [x for x in dates if x not in blob]
     return {"numbers": len(found) + len(dates), "untraced": bad, "ok": not bad}

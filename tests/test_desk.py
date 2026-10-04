@@ -10,8 +10,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from desk.pipeline import Desk, inbox_lines  # noqa: E402
 
 
-def loaded() -> Desk:
-    desk = Desk()
+def loaded(objective: str = "lateness") -> Desk:
+    desk = Desk(objective=objective)
     for ln in inbox_lines():
         desk.propose(ln)
     return desk
@@ -28,7 +28,7 @@ def test_propose_writes_nothing():
 
 
 def test_open_requests_follow_the_ledger():
-    desk = loaded()
+    desk = loaded("lateness_v1")                               # earliest finish makes the hand-off visible
     assert desk.decisions["R12"]["recommended"] == "W6"        # nothing confirmed yet: Nimble Needle
     desk.confirm("R09")
     r12 = desk.refresh("R12")
@@ -51,7 +51,8 @@ def test_late_needs_explicit_acceptance():
 def test_refused_suggestion_uses_alternative():
     desk = loaded()
     rec = desk.confirm("R08")
-    assert rec["workshop_id"] == "W6" and rec["estimate"]["on_time"]
+    assert rec["workshop_id"] != "W8" and rec["estimate"]["on_time"]       # not FreshStart, and on time
+    assert rec["workshop_id"] not in desk.session_excl                      # and not the shop Boss ruled out
 
 
 def test_cannot_confirm_ineligible_or_excluded():
@@ -103,7 +104,7 @@ def test_unattended_replay_still_matches_cli():
     for ln in inbox_lines():
         desk.handle(ln)
     committed = [r["request_id"] for r in desk.ledger.records]
-    assert {"R09", "R12", "R25"} <= set(committed)
+    assert {"R09", "R12"} <= set(committed)
     # only on-time allocations are written; asks, refusals, declines and late ones wait for a human
     for rid, d in desk.decisions.items():
         assert (rid in committed) == (d.get("subtype") == "allocate"), rid

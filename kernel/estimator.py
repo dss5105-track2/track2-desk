@@ -8,7 +8,10 @@ Mirrors harness/simulate.py exactly where the simulator is deterministic:
 The only stochastic part of the simulator is the defect draw (probability defect_rate,
 work_days * 1.5 if it happens). We cannot know the draw, so we report its expectation:
     rework_days = defect_rate * 0.5 * work_days
-and expose it as a separate component so the explanation can say so.
+and expose it as a separate component so the explanation can say so. We also report the
+date the batch comes back IF it is reworked (work_days * 1.5), because a promise that only
+holds when nothing goes wrong is not one a dispatcher can give a customer:
+    worst_finish_days = queue + 1.5 * work_days + lead_days      safe = worst_date <= due_date
 """
 from __future__ import annotations
 
@@ -33,10 +36,14 @@ class Estimate:
     on_time: bool
     cost: float
     defect_rate: float
+    worst_finish_days: float = 0.0   # queue + 1.5 * work + lead: the batch is reworked
+    worst_date: date = None          # sent_date + round(worst_finish_days)
+    safe: bool = False               # still on time if the batch is reworked
 
     def as_dict(self) -> dict:
         d = asdict(self)
         d["promised_date"] = self.promised_date.isoformat()
+        d["worst_date"] = self.worst_date.isoformat() if self.worst_date else None
         return d
 
 
@@ -47,11 +54,14 @@ def estimate(w, pieces: int, queue_days: float, sent_date: date, due_date: date,
     finish = queue_days + work + rework + w.lead_days
     promised = sent_date + timedelta(days=round(finish))
     late = max(0, (promised - due_date).days)
+    worst = queue_days + 1.5 * work + w.lead_days
+    worst_date = sent_date + timedelta(days=round(worst))
     return Estimate(
         workshop_id=w.workshop_id, name=w.name,
         queue_days=queue_days, work_days=work, rework_days=rework, lead_days=float(w.lead_days),
         finish_days=finish, promised_date=promised, late_days=late, on_time=promised <= due_date,
         cost=pieces * w.cost, defect_rate=w.defect_rate,
+        worst_finish_days=worst, worst_date=worst_date, safe=worst_date <= due_date,
     )
 
 
