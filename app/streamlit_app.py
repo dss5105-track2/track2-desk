@@ -215,7 +215,7 @@ def inbox_row(d: dict) -> dict:
         decision = "Not in the data"
     if d["status"] in HUMAN_STATUSES:
         decision = STATUS_LABEL[d["status"]][0]
-    return {"ID": d["request_id"], "Order": d["order_id"] or "?", "Decision": decision, "Back": back, "Spare": spare}
+    return {"ID": d["request_id"], "Order": d["order_id"] or "?", "Decision": decision, "Back": back, "Spare": "" if spare is None else f"{spare} d"}
 
 
 def candidate_frame(d: dict) -> pd.DataFrame:
@@ -450,8 +450,8 @@ with tab_desk:
                                              "Order": st.column_config.TextColumn("Order", width=76),
                                              "Decision": st.column_config.TextColumn("Decision", width=178),
                                              "Back": st.column_config.TextColumn("Back", width=84),
-                                             "Spare": st.column_config.NumberColumn("Spare", format="%d d", width=74,
-                                                                                    help="Days between the promised date and the due date; negative = late")})
+                                             "Spare": st.column_config.TextColumn("Spare", width=74,
+                                                                                  help="Days between the promised date and the due date; negative = late")})
             rows = ev.selection.rows if ev and ev.selection else []
             if rows:
                 st.session_state.selected = inbox.iloc[rows[0]]["ID"]
@@ -559,7 +559,7 @@ with tab_sim:
     shock = s3.toggle("Shock (one workshop closes for two weeks, 31 Jan – 14 Feb)")
     df = run_sim(int(seed), bool(shock), 10 if ten else 1)
     st.dataframe(df, hide_index=True, width="stretch")
-    st.bar_chart(df, x="Policy", y="% late", color="Kind", horizontal=True, height=360)
+    st.bar_chart(df, x="Policy", y="% late", color="Kind", horizontal=True, height=max(360, 42 * len(df)))
     st.caption("Command-line equivalent: `python harness/run_baselines.py --seed " + str(int(seed))
                + (" --shock" if shock else "") + (" --seeds 10`" if ten else " --seeds 1`"))
 
