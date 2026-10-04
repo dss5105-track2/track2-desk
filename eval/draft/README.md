@@ -2,6 +2,8 @@
 
 `gold_labels_draft.csv` 是 Claude 按 `eval/protocol.md` 生成的第一版标注与数字，用于对照，**不是标准答案**。
 
+> **2026-10-04 起本草稿过时。** 它基于 v2 群聊。老师的 v3 改了 9 条请求（R04 R06 R07 R16 R17 R22 R23 R26 R27），这 9 行的订单、数字和标签全部作废；其余 21 行的数字也要按 v3 顺序重放，因为前面新请求派出后会改变车间队列。新九条的独立分类见 `eval/independent/v3/`，收齐后再重新生成标注和 `gold_facts`。在那之前，`desk/pipeline.py` 末尾打印的"对照分数"没有意义。
+
 - 全员独立分类（labeling_guide 第 1 步）交齐之前，任何人都不要打开本目录的 CSV，否则分歧统计失效。
 - 数字由 PowerShell 按内核公式重放得到（含返工期望、Python round 规则），本机当时无 Python。正式数字必须由 `python eval/compute_gold_facts.py` 生成并与本草稿比对。
 - `final` 列由张锦若在双人标注后填写；定稿后另存为 `eval/gold_labels.csv`，本草稿保留不删，作为开发接触的证据。

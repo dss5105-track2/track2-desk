@@ -22,7 +22,7 @@ def test_propose_writes_nothing():
     assert len(desk.decisions) == 30
     assert desk.ledger.records == []
     assert desk.decisions["R09"]["status"] == "awaiting_confirmation"
-    assert desk.decisions["R16"]["status"] == "needs_reply"
+    assert desk.decisions["R15"]["status"] == "needs_reply"
     assert desk.decisions["R18"]["status"] == "answered"
     assert desk.session_excl["W1"]["by"] == "Boss"
 
@@ -39,13 +39,13 @@ def test_open_requests_follow_the_ledger():
 def test_late_needs_explicit_acceptance():
     desk = loaded()
     try:
-        desk.confirm("R06")
+        desk.confirm("R30")
         assert False, "a late dispatch must not commit without accept_late"
     except ValueError as ex:
         assert "late" in str(ex)
-    rec = desk.confirm("R06", accept_late=True)
-    assert rec["workshop_id"] == "W6" and rec["estimate"]["late_days"] == 4
-    assert desk.decisions["R06"]["status"] == "committed"
+    rec = desk.confirm("R30", accept_late=True)
+    assert rec["workshop_id"] == "W5" and rec["estimate"]["late_days"] == 7
+    assert desk.decisions["R30"]["status"] == "committed"
 
 
 def test_refused_suggestion_uses_alternative():
@@ -90,7 +90,7 @@ def test_follow_up_resolves_ambiguous_request():
 
 def test_mark_and_reassign_are_logged():
     desk = loaded()
-    desk.mark("R16", "reply_sent", note="asked Chen")
+    desk.mark("R15", "reply_sent", note="asked Mei")
     rec = desk.confirm("R09")
     new = desk.reassign(rec["audit_id"], "W8", reason="FreshStart has idle capacity")
     assert new["workshop_id"] == "W8"
@@ -102,7 +102,11 @@ def test_unattended_replay_still_matches_cli():
     desk = Desk()
     for ln in inbox_lines():
         desk.handle(ln)
-    assert [r["request_id"] for r in desk.ledger.records] == ["R09", "R12", "R25"]
+    committed = [r["request_id"] for r in desk.ledger.records]
+    assert {"R09", "R12", "R25"} <= set(committed)
+    # only on-time allocations are written; asks, refusals, declines and late ones wait for a human
+    for rid, d in desk.decisions.items():
+        assert (rid in committed) == (d.get("subtype") == "allocate"), rid
 
 
 if __name__ == "__main__":

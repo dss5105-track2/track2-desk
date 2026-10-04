@@ -89,7 +89,7 @@ def test_r21_cheapest_that_makes_apr_13_is_giantweave():
     assert "W3" not in on_time                            # BudgetWorks is cheaper but cannot make the date
 
 
-def test_no_on_time_option_r06():
+def test_no_on_time_option_ord061():
     o = O["ORD-061"]  # 800 scarves, due 2026-04-05, 4 days of slack
     ests = estimate_all(W, o.category, o.pieces, q0(), TODAY, o.due_date, include_rework=False)
     assert all(not e.on_time for e in ests)
@@ -135,7 +135,7 @@ def test_find_by_name():
     assert find_by_name(W, "Little Loom does lovely work") == ["W4"]
 
 
-def test_split_estimate_r23_gains_little():
+def test_split_estimate_ord093_gains_little():
     o = O["ORD-093"]  # 100 beanies
     s = split_estimate(W, o.category, o.pieces, q0(), TODAY, o.due_date)
     assert s["possible"] and s["gain_days"] < 1.0

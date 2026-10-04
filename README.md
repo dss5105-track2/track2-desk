@@ -5,6 +5,8 @@
 团队：屈妍玥 · 张锦若 · 吴杰 · 李岩 · 吴若晗 · 许佩瑶
 
 > **状态：第一周（2026-09-14）。** 仓库内容由 Claude 起草。已在 Python 3.12 上跑通全部测试、官方模拟器、基线对比、压力场景和调度员界面，结果见 [`docs/results_week1.md`](docs/results_week1.md)。
+>
+> **2026-10-04：数据已换成老师的 v3。** 群聊 9 条请求改了订单和日期（R04 R06 R07 R16 R17 R22 R23 R26 R27），模拟器的 `--shock` 结果要按 10 个 seed 重跑，详见 [`data/CHANGELOG.md`](data/CHANGELOG.md)。`orders.csv`、`workshops.csv` 和不加 `--shock` 的模拟器结果都没变。`docs/results_week1.md` 里的 shock 数字和 30 条请求结果是 v2 的，已过时。全组已定：30 条请求按时间顺序处理，前面确认派出的单子占用后面的产能。
 
 ## 打开调度员界面
 
@@ -34,7 +36,7 @@ python llm/llm_client.py
 |---|---|
 | `tests/test_kernel.py` | 全部 PASS，`failed: 0` |
 | `harness/simulate.py` | 官方三个 baseline 表 |
-| `harness/run_baselines.py` | 官方 baseline + 十行启发式 + 五个目标配置，写入 `results/` |
+| `harness/run_baselines.py` | 官方 baseline + 简单规则分配器（earliest_finish）+ 五个目标配置，写入 `results/`；加 `--shock` 时默认跑 seed 5105 到 5114 取平均，并给出正常跑到 shock 的变化量 |
 | `harness/run_seeds.py` | 每个策略迟交率与 P90 的最小、平均、最大值 |
 | `eval/compute_gold_facts.py` | 按协议重放 30 条请求的推荐与数字，写入标签文件所在目录；定稿前是 `eval/draft/`，独立分类前不要打开 |
 | `llm/llm_client.py` | 规则回退解析器对 30 条请求的解析结果 |
@@ -112,7 +114,7 @@ kernel/              确定性内核，零 LLM
   register.py        车间登记册与资格三问
   orders.py          订单表与状态交叉检查
   estimator.py       交期估算（队列 + 加工 + 返工期望 + 运输）与拆单估算
-  allocator.py       目标即配置的分配器；十行启发式
+  allocator.py       目标即配置的分配器；简单规则分配器 earliest_finish
   ledger.py          队列账本与审计记录
 language/            结构化请求 schema 与 30 条手工解析
 llm/                 LLM 客户端接口与规则回退解析器
