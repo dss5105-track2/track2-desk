@@ -4,8 +4,9 @@
     python harness/run_seeds.py --shock --seeds 5105 1 2 3 4 5
 
 Prints min / mean / max of % late and P90 per policy and writes results/seeds_*.csv.
-Note: with --shock the closed workshop is chosen from the same RNG stream, so it can
-differ between seeds; the per-seed target is recorded in the CSV.
+Note: with --shock the closed workshop depends on the seed (simulate.py v3 draws it from its
+own stream, seed + 6); the per-seed target is recorded in the CSV. For the averaged table
+the track asks for, use run_baselines.py --shock (seeds 5105..5114).
 """
 import argparse
 import csv
@@ -16,16 +17,9 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "harness"))
 
-import random as _random  # noqa: E402
 from simulate import Simulator, random_choice, greedy_biggest, cheapest  # noqa: E402
 from kernel.allocator import Allocator, earliest_finish, OBJECTIVES  # noqa: E402
-from run_baselines import summarise  # noqa: E402
-
-
-def shock_target(sim):
-    """Replicate simulate.py's first RNG draw so the report can say which workshop closed."""
-    rng = _random.Random(sim.seed)
-    return rng.choice([w.workshop_id for w in sim.workshops.values() if w.status == "ACTIVE"])
+from run_baselines import summarise, shock_target  # noqa: E402
 
 
 def main():
@@ -49,7 +43,8 @@ def main():
     outdir = ROOT / "results"; outdir.mkdir(exist_ok=True)
     path = outdir / f"seeds_{'shock_' if args.shock else ''}{'_'.join(map(str, args.seeds))}.csv"
     with open(path, "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=["policy", "seed", "shock_target", "mean_days", "p90_days", "pct_late", "pct_defect", "cost", "max_share"])
+        w = csv.DictWriter(f, fieldnames=["policy", "seed", "shock_target", "mean_days", "p90_days", "pct_late", "late_days",
+                                          "pct_defect", "pct_def_pcs", "cost", "max_share"])
         w.writeheader()
         for r in table:
             w.writerow({k: r[k] for k in w.fieldnames})

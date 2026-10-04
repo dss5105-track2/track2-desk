@@ -1,4 +1,4 @@
-"""Objective-as-configuration allocator, plus the ten-line heuristic it must be compared with.
+"""Objective-as-configuration allocator, plus the simple rule-based allocator it must be compared with.
 
 Every candidate gets a score = sum(weight_k * normalised_metric_k); lower is better.
 Metrics are normalised inside the candidate set so weights are comparable across orders:
@@ -104,7 +104,8 @@ class Allocator:
 
 
 def earliest_finish(batch, workshops, queues):
-    """The ten-line heuristic. Every result in the report is compared against this."""
+    """The simple rule-based allocator (Tracks v4: no LLM, about the size of the shipped baselines).
+    Every result in the report is compared against this."""
     ok = eligible_workshops(workshops, batch["category"], batch["pieces"])
     return min(ok, key=lambda w: queues[w.workshop_id] + batch["pieces"] / w.capacity + w.lead_days).workshop_id
 

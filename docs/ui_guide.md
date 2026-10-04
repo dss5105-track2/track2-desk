@@ -15,7 +15,7 @@ streamlit run app/streamlit_app.py
 | Dispatch · 右半 | 请求卡片：原文、解析结果、**一行结论**、解释、数字核查标记、候选车间对比表、不合格车间及原因、操作按钮、工具调用明细 | 候选、估算、推荐一眼可见；解释可追溯 |
 | Workshops | 车间登记册、当前队列图、"谁能接这批"查询 | 可查询的车间登记册 |
 | Audit log | 账本记录、所有人工操作记录、下载 audit.json | 可审计的结构化记录 |
-| Simulator | 官方模拟器实时运行：三个 baseline、十行启发式、五种目标配置，可切换 seed 和 shock | 与 baseline 对比 |
+| Simulator | 官方模拟器实时运行：三个 baseline、简单规则分配器、五种目标配置，可切换 seed 和 shock（界面只跑单个 seed，报告用 10 个 seed 的平均） | 与 baseline 对比 |
 | Dev check | 与标准答案草稿对照，需要勾选"已交独立分类"才显示 | 开发自检，不是评估 |
 
 ## 请求卡片的一行结论
@@ -41,7 +41,7 @@ streamlit run app/streamlit_app.py
 6. **R03，追问。** TrendCart 有 6 单在途，系统列出候选而不是猜。直接选订单，新请求自动生成。
 7. **R18，无法回答。** ORD-999 不存在，系统说查不到，不编。
 8. **Audit log。** 展示每一次确认、改派、解除约束都有记录，可下载。
-9. **Simulator。** 切 shock，说明 lateness 配置与十行启发式打平，这是我们在报告里如实写的发现。
+9. **Simulator。** 切 shock，说明 lateness 配置与简单规则分配器打平，这是我们在报告里如实写的发现。
 
 ## 部署成公开 demo 链接
 

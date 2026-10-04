@@ -410,26 +410,28 @@ def run_sim(seed: int, shock: bool) -> pd.DataFrame:
     from kernel.allocator import Allocator, earliest_finish
     sim = Simulator(shock=shock, seed=seed)
     pols = [("random", random_choice, "official baseline"), ("greedy_biggest", greedy_biggest, "official baseline"),
-            ("cheapest", cheapest, "official baseline"), ("earliest_finish", earliest_finish, "ten-line heuristic")]
+            ("cheapest", cheapest, "official baseline"), ("earliest_finish", earliest_finish, "simple rule-based allocator")]
     pols += [(f"cfg:{o}", Allocator(o), "our allocator") for o in OBJECTIVES]
     rows = []
     for name, pol, kind in pols:
         r = summarise(name, sim.run(pol, name))
-        rows.append({"Policy": name, "Kind": kind, "% late": r["pct_late"], "Mean days": r["mean_days"], "P90 days": r["p90_days"],
-                     "% defect": r["pct_defect"], "Cost": r["cost"], "Max share %": r["max_share"]})
+        rows.append({"Policy": name, "Kind": kind, "% late": r["pct_late"], "Late days": r["late_days"], "Mean days": r["mean_days"],
+                     "P90 days": r["p90_days"], "% defect": r["pct_defect"], "% def pcs": r["pct_def_pcs"], "Cost": r["cost"],
+                     "Max share %": r["max_share"]})
     return pd.DataFrame(rows)
 
 
 with tab_sim:
     st.subheader("Shared simulator · 120 orders replayed")
-    st.caption("Runs the untouched harness/simulate.py. Official baselines, the ten-line heuristic and every objective configuration.")
+    st.caption("Runs the untouched harness/simulate.py (v3). Official baselines, the simple rule-based allocator and every objective configuration. "
+               "One seed here; the report uses shock averaged over seeds 5105–5114.")
     s1, s2, s3 = st.columns([1, 1, 2])
     seed = s1.number_input("Seed", value=5105, step=1)
     shock = s2.toggle("Shock (a workshop closes days 30–44)")
     df = run_sim(int(seed), bool(shock))
     st.dataframe(df, hide_index=True, width="stretch")
     st.bar_chart(df, x="Policy", y="% late", color="Kind", horizontal=True, height=320)
-    st.caption("Command-line equivalent: `python harness/run_baselines.py --seed " + str(int(seed)) + (" --shock`" if shock else "`"))
+    st.caption("Command-line equivalent: `python harness/run_baselines.py --seed " + str(int(seed)) + (" --shock --seeds 1`" if shock else "`"))
 
 
 # ------------------------------------------------------------------ dev check
