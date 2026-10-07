@@ -1,4 +1,4 @@
-"""LLM client (OpenAI GPT-5 nano via the Responses API) + the rule-based fallback parser.
+"""LLM client (OpenAI GPT-5 mini by default, via the Responses API) + the rule-based fallback parser.
 
 The language layer calls `LLMClient.parse_request()`. When the model is unavailable,
 over budget, refuses, or returns something unusable, `RuleBasedParser` produces the same
@@ -9,7 +9,7 @@ queues, and never chooses a workshop - those come from kernel/.
 
 Configuration comes from environment variables (or a local, git-ignored `.env` file):
     DESK_LLM_PROVIDER          openai | none      (default none -> rules only)
-    DESK_LLM_MODEL             model id           (default gpt-5-nano)
+    DESK_LLM_MODEL             model id           (default gpt-5-mini; gpt-5-nano is about 4x cheaper)
     OPENAI_API_KEY             key from platform.openai.com (DESK_LLM_API_KEY also accepted)
     DESK_LLM_BUDGET_USD        hard stop for one Python process (default 2)
     DESK_LLM_REASONING_EFFORT  reasoning effort sent to the model (default low; empty = omit)
@@ -64,7 +64,7 @@ PRICING: Dict[str, Tuple[float, float]] = {
     "gpt-5-mini": (0.25, 2.00),
     "gpt-5": (1.25, 10.00),
 }
-DEFAULT_MODEL = "gpt-5-nano"
+DEFAULT_MODEL = "gpt-5-mini"          # team decision 2026-10-07; see docs/round2_changes.md
 
 
 def empty_request() -> Dict:
@@ -566,7 +566,7 @@ if __name__ == "__main__":
     import argparse
     from pathlib import Path
 
-    ap = argparse.ArgumentParser(description="Parse the 30 official requests with rules (default) or GPT-5 nano (--llm).")
+    ap = argparse.ArgumentParser(description="Parse the 30 official requests with rules (default) or the LLM (--llm, default GPT-5 mini).")
     ap.add_argument("--llm", action="store_true", help="use OpenAI; needs DESK_LLM_PROVIDER=openai and OPENAI_API_KEY")
     ap.add_argument("--limit", type=int, default=None, help="only parse the first N requests")
     args = ap.parse_args()

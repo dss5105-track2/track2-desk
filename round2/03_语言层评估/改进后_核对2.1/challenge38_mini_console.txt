@@ -1,0 +1,63 @@
+{
+ "field_accuracy_pct": 98.68,
+ "requests_with_all_fields_right_pct": 84.21,
+ "wrong_by_field": {
+  "missing_fields": 9,
+  "preference": 3,
+  "references_prior": 3,
+  "pieces": 2,
+  "forced_workshop": 1
+ },
+ "behaviour_accuracy_pct": 97.37,
+ "subtype_accuracy_pct": 92.11,
+ "behaviour_by_class": {
+  "clarify": "33/33",
+  "decline-to-answer": "15/15",
+  "extract": "48/48",
+  "refuse": "15/18"
+ },
+ "decision_sound_pct": 95.45,
+ "decisions_checked": 66,
+ "numbers_traced_pct": 100.0,
+ "reply_complete_pct": 100.0,
+ "consistency": {
+  "runs": 3,
+  "same_subtype_pct": 86.8,
+  "same_subtype_and_workshop_pct": 86.8,
+  "same_parse_outcome_pct": 76.3
+ },
+ "parser": "llm:gpt-5-mini",
+ "runs": 3,
+ "requests": 38,
+ "objective": "lateness",
+ "tag": "challenge38",
+ "prompt": "v2",
+ "grounding": true,
+ "grounding_version": "2.1",
+ "values_corrected_by_grounding": 4,
+ "llm_calls": 114,
+ "fallbacks_to_rules": 0,
+ "spent_usd": 0.1437,
+ "mean_output_tokens": 336,
+ "fallback_reasons": []
+}
+
+rows with any problem: 18 of 114
+  run 1 C10: behaviour clarify/clarify | decision ok | reply ok | fields missing_fields: got ['order_id', 'pieces', 'due_date'] want ['order_id']
+  run 1 C15: behaviour clarify/clarify | decision ok | reply ok | fields preference: got 'fastest' want 'none'
+  run 1 C19: behaviour clarify/clarify | decision ok | reply ok | fields references_prior: got 'C15' want None
+  run 1 C20: behaviour extract/extract | decision ok | reply ok | fields pieces: got None want 1200
+  run 1 C34: behaviour clarify/refuse | decision wrong behaviour, no decision to check | reply ok | fields missing_fields: got ['due_date'] want []
+  run 1 C36: behaviour decline-to-answer/decline-to-answer | decision ok | reply ok | fields forced_workshop: got 'W2' want None
+  run 2 C06: behaviour clarify/clarify | decision ok | reply ok | fields missing_fields: got ['order_id'] want ['order_id', 'pieces', 'due_date']
+  run 2 C10: behaviour clarify/clarify | decision ok | reply ok | fields missing_fields: got ['order_id', 'pieces', 'due_date'] want ['order_id']
+  run 2 C15: behaviour clarify/clarify | decision ok | reply ok | fields preference: got 'fastest' want 'none'
+  run 2 C17: behaviour clarify/refuse | decision wrong behaviour, no decision to check | reply ok | fields missing_fields: got ['due_date'] want []
+  run 2 C19: behaviour clarify/clarify | decision ok | reply ok | fields references_prior: got 'C15' want None
+  run 2 C26: behaviour clarify/clarify | decision ok | reply ok | fields preference: got 'fastest' want 'none'
+  run 2 C32: behaviour clarify/clarify | decision ok | reply ok | fields missing_fields: got ['order_id'] want ['order_id', 'pieces', 'due_date']
+  run 3 C10: behaviour clarify/clarify | decision ok | reply ok | fields missing_fields: got ['order_id', 'pieces', 'due_date'] want ['order_id']
+  run 3 C19: behaviour clarify/clarify | decision ok | reply ok | fields references_prior: got 'C15' want None
+  run 3 C20: behaviour extract/extract | decision ok | reply ok | fields pieces: got None want 1200
+  run 3 C28: behaviour clarify/refuse | decision wrong behaviour, no decision to check | reply ok | fields missing_fields: got ['due_date'] want []
+  run 3 C32: behaviour clarify/clarify | decision ok | reply ok | fields missing_fields: got ['order_id'] want ['order_id', 'pieces', 'due_date']

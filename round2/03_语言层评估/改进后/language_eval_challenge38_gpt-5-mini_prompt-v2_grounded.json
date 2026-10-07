@@ -1,0 +1,41 @@
+{
+ "field_accuracy_pct": 99.12,
+ "requests_with_all_fields_right_pct": 89.47,
+ "wrong_by_field": {
+  "missing_fields": 6,
+  "references_prior": 4,
+  "pieces": 1,
+  "preference": 1
+ },
+ "behaviour_accuracy_pct": 100.0,
+ "subtype_accuracy_pct": 96.49,
+ "behaviour_by_class": {
+  "clarify": "33/33",
+  "decline-to-answer": "15/15",
+  "extract": "48/48",
+  "refuse": "18/18"
+ },
+ "decision_sound_pct": 100.0,
+ "decisions_checked": 66,
+ "numbers_traced_pct": 100.0,
+ "reply_complete_pct": 100.0,
+ "consistency": {
+  "runs": 3,
+  "same_subtype_pct": 97.4,
+  "same_subtype_and_workshop_pct": 97.4,
+  "same_parse_outcome_pct": 92.1
+ },
+ "parser": "llm:gpt-5-mini",
+ "runs": 3,
+ "requests": 38,
+ "objective": "lateness",
+ "tag": "challenge38",
+ "prompt": "v2",
+ "grounding": true,
+ "values_corrected_by_grounding": 3,
+ "llm_calls": 114,
+ "fallbacks_to_rules": 0,
+ "spent_usd": 0.1412,
+ "mean_output_tokens": 325,
+ "fallback_reasons": []
+}

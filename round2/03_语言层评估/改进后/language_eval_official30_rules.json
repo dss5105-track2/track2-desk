@@ -1,0 +1,22 @@
+{
+ "field_accuracy_pct": 100.0,
+ "requests_with_all_fields_right_pct": 100.0,
+ "wrong_by_field": {},
+ "behaviour_accuracy_pct": 100.0,
+ "subtype_accuracy_pct": 100.0,
+ "behaviour_by_class": {
+  "clarify": "7/7",
+  "decline-to-answer": "3/3",
+  "extract": "16/16",
+  "refuse": "4/4"
+ },
+ "decision_sound_pct": 100.0,
+ "decisions_checked": 20,
+ "numbers_traced_pct": 100.0,
+ "reply_complete_pct": 100.0,
+ "parser": "rules",
+ "runs": 1,
+ "requests": 30,
+ "objective": "lateness",
+ "tag": "official30"
+}

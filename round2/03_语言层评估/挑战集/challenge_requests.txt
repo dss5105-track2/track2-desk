@@ -1,0 +1,39 @@
+# Challenge inbox, morning of 2026-04-01. AI-written (Claude), round 2. Not the held-out set.
+C01 [07:50] Chen: Morning. ORD-082 can go out — 600 beanies for TrendCart, back by May 1.
+C02 [07:55] Mei: Where are we sending the Cotton Club order?
+C03 [08:01] Boss: ORD-024 — 300 vests for Loom & Leaf, due Apr 15. Get it back as fast as you can, never mind the price.
+C04 [08:06] Ravi: ORD-108 — 2000 scarves for Harbor Knits. Needs to be back Apr 3.
+C05 [08:10] Ravi: Pls place ORD-036: 1,000 scarves, UrbanThread, needed 26 Apr.
+C06 [08:15] Boss: Maple & Co will send a repeat order this afternoon, numbers not final. Pencil in a workshop.
+C07 [08:19] Priya: ORD-109, 500 vests, Harbor Knits, due Apr 13. Tight budget on this — the cheapest workshop that still hits the 13th.
+C08 [08:24] Chen: Put ORD-053 with OldMill, they did a nice job last time.
+C09 [08:28] Mei: ORD-035 is ready for a workshop. 300 beanies (Loom & Leaf), due April 29.
+C10 [08:33] Chen: The hoodies need a workshop today.
+C11 [08:37] Mei: ORD-005: 500 scarves for TrendCart due Apr 20. They complained about quality last time, so whoever has the fewest defects.
+C12 [08:42] Priya: ORD-062, 2000 scarves, Bright Basics, due Apr 08. Where can it go?
+C13 [08:46] Ravi: QuickStitch can take the beanies on ORD-041, right?
+C14 [08:51] Priya: Need a shop for ORD-010 today, 1000 cardigans, Cotton Club want them by Apr 25.
+C15 [08:55] Chen: ORD-066 — Northwind Apparel want it sooner than planned but haven't said when. Start looking.
+C16 [09:00] Ravi: ORD-063 — 100 cardigans, Apr 29. Anyone but BudgetWorks please.
+C17 [09:04] Priya: ORD-081 to FreshStart please — 1500 crewnecks.
+C18 [09:09] Boss: Heads up: GiantWeave's truck is off the road, don't send them anything new until further notice. Meanwhile ORD-073 (400 hoodies, due Apr 20) needs a home.
+C19 [09:14] Ravi: Can you sort out that Northwind Apparel order from early March?
+C20 [09:18] Chen: Dispatch ORD-040 — 1.2k hoodies, Loom & Leaf, due Apr 21.
+C21 [09:23] Mei: Give ORD-017 to GiantWeave, they have the capacity.
+C22 [09:27] Mei: ORD-020 has to go out: 1200 vests for TrendCart, due Mar 31.
+C23 [09:32] Chen: How many batches did BudgetWorks deliver late last quarter?
+C24 [09:36] Mei: Some polo shirts for a new customer, a few hundred, date to be confirmed.
+C25 [09:41] Priya: ORD-082 — 600 beanies for TrendCart — please get this placed today.
+C26 [09:45] Priya: Bright Basics are asking about their scarves — get them out the door please.
+C27 [09:50] Ravi: ORD-095 for Bright Basics has to go outside. 800 hoodies. Deadline is Apr 26.
+C28 [09:54] Boss: Little Loom for ORD-015.
+C29 [09:59] Priya: What's our margin on ORD-081?
+C30 [10:03] Chen: ORD-096 — 1000 beanies, TrendCart, due Apr 17. If two shops get it done sooner, split it.
+C31 [10:08] Ravi: ORD-057 needs to go outside, 600 cardigans for UrbanThread.
+C32 [10:12] Ravi: About the Maple & Co repeat order from this morning: still waiting on quantities.
+C33 [10:17] Boss: ORD-061 — 800 scarves, Harbor Knits, ship by Apr 5.
+C34 [10:21] Chen: ORD-029 to FreshStart? 1500 beanies.
+C35 [10:26] Boss: The UrbanThread job should go out today.
+C36 [10:30] Mei: Who is the line supervisor at SteadyHands these days?
+C37 [10:35] Ravi: Any news on ORD-777?
+C38 [10:39] Boss: What did TrendCart pay per piece on their last beanie order?

@@ -31,7 +31,7 @@ from desk.pipeline import Desk, inbox_lines, HUMAN_STATUSES  # noqa: E402
 from kernel.allocator import OBJECTIVES  # noqa: E402
 from kernel.orders import TODAY  # noqa: E402
 from kernel.register import eligibility_table  # noqa: E402
-from llm.llm_client import LLMClient  # noqa: E402
+from llm.llm_client import DEFAULT_MODEL, LLMClient  # noqa: E402
 
 st.set_page_config(page_title="SweaterCo Subcontracting Desk", page_icon="🧶", layout="wide")
 
@@ -138,9 +138,10 @@ with st.sidebar:
         st.rerun()
 
     has_key = bool(os.getenv("OPENAI_API_KEY") or os.getenv("DESK_LLM_API_KEY"))
-    parser_choice = st.radio("Message parser", ["Rules (free, offline)", "GPT-5 nano"], index=1 if st.session_state.use_llm else 0,
+    llm_label = (os.getenv("DESK_LLM_MODEL") or DEFAULT_MODEL).replace("gpt-", "GPT-").replace("-mini", " mini").replace("-nano", " nano")
+    parser_choice = st.radio("Message parser", ["Rules (free, offline)", llm_label], index=1 if st.session_state.use_llm else 0,
                              disabled=not has_key, help="Changing the parser starts a new session." if has_key else "Add OPENAI_API_KEY to .env to enable")
-    want_llm = parser_choice == "GPT-5 nano"
+    want_llm = parser_choice == llm_label
     if want_llm != st.session_state.use_llm:
         st.session_state.use_llm = want_llm
         st.session_state.desk = new_desk(desk.alloc.objective, want_llm)
@@ -185,7 +186,7 @@ with st.sidebar:
                                 "Sent": st.column_config.NumberColumn("Sent", format="%d", width=52, help="Pieces confirmed in this session")})
     if st.session_state.get("llm_client"):
         c = st.session_state.llm_client
-        st.caption(f"GPT-5 nano spend this session: ${c.spent_usd:.4f} of ${c.budget_usd:.2f}")
+        st.caption(f"{c.model} spend this session: ${c.spent_usd:.4f} of ${c.budget_usd:.2f}")
 
 if "flash" in st.session_state:
     kind, msg = st.session_state.pop("flash")
@@ -575,7 +576,7 @@ with tab_eval:
         st.code(f"python eval/run_language_eval.py --labels {labels.relative_to(ROOT)}", language="bash")
     else:
         st.info("The gold labels are not frozen yet (`eval/gold_labels.csv` is missing), so nothing is scored here. "
-                "Once they are, run `python eval/run_language_eval.py --labels eval/gold_labels.csv` (add `--parser llm --runs 3` for GPT-5 nano).")
+                "Once they are, run `python eval/run_language_eval.py --labels eval/gold_labels.csv` (add `--parser llm --runs 3` for the LLM).")
     replay = Desk(objective=desk.alloc.objective)
     for ln in inbox_lines():
         replay.handle(ln)

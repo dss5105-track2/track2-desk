@@ -1,7 +1,7 @@
 """Evaluate the language surface on an inbox: extraction, behaviour, decision, explanation. Separately.
 
     python eval/run_language_eval.py --labels <labels.csv>                       # rule parser, free
-    python eval/run_language_eval.py --labels <labels.csv> --parser llm --runs 3 # GPT-5 nano, costs money
+    python eval/run_language_eval.py --labels <labels.csv> --parser llm --runs 3 # GPT-5 mini by default, costs money
     python eval/run_language_eval.py --inbox <file> --labels <csv> --parses <json> --out <dir>
 
 Requests are processed in time order; an on-time allocation is confirmed and occupies capacity.
@@ -183,7 +183,7 @@ def main():
     ap.add_argument("--parses", default=str(ROOT / "language" / "requests_gold.json"), help="hand-made parses; '' to skip extraction scoring")
     ap.add_argument("--parser", choices=["rules", "llm"], default="rules")
     ap.add_argument("--runs", type=int, default=1)
-    ap.add_argument("--model", default="", help="LLM model id (default: DESK_LLM_MODEL or gpt-5-nano)")
+    ap.add_argument("--model", default="", help="LLM model id (default: DESK_LLM_MODEL or gpt-5-mini)")
     ap.add_argument("--prompt", choices=["v1", "v2"], default="v2", help="extraction prompt version (llm/llm_client.py PROMPTS)")
     ap.add_argument("--no-grounding", action="store_true", help="skip the code check of extracted values against the message text")
     ap.add_argument("--objective", default="lateness")

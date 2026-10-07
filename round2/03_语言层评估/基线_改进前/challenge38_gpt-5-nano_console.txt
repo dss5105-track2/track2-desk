@@ -1,0 +1,87 @@
+{
+ "field_accuracy_pct": 92.11,
+ "requests_with_all_fields_right_pct": 43.86,
+ "wrong_by_field": {
+  "customer": 33,
+  "missing_fields": 24,
+  "product": 14,
+  "question_type": 12,
+  "references_prior": 11,
+  "due_date": 6,
+  "forced_workshop": 3,
+  "excluded_workshops": 2,
+  "preference": 2,
+  "constraint_scope": 1
+ },
+ "behaviour_accuracy_pct": 84.21,
+ "subtype_accuracy_pct": 79.82,
+ "behaviour_by_class": {
+  "clarify": "21/33",
+  "decline-to-answer": "15/15",
+  "extract": "45/48",
+  "refuse": "15/18"
+ },
+ "decision_sound_pct": 84.85,
+ "decisions_checked": 66,
+ "numbers_traced_pct": 100.0,
+ "reply_complete_pct": 99.12,
+ "consistency": {
+  "runs": 3,
+  "same_subtype_pct": 78.9,
+  "same_subtype_and_workshop_pct": 57.9,
+  "same_parse_outcome_pct": 28.9
+ },
+ "parser": "llm:gpt-5-nano",
+ "runs": 3,
+ "requests": 38,
+ "objective": "lateness",
+ "tag": "challenge38",
+ "llm_calls": 114,
+ "fallbacks_to_rules": 0,
+ "spent_usd": 0.0349,
+ "mean_output_tokens": 570,
+ "fallback_reasons": []
+}
+
+rows with any problem: 67 of 114
+  run 1 C02: behaviour decline-to-answer/clarify | decision ok | reply ok | fields question_type: got 'information' want 'allocation';references_prior: got 'C01' want None;missing_fields: got [] want ['order_id']
+  run 1 C03: behaviour extract/extract | decision ok | reply ok | fields customer: got None want 'Loom & Leaf'
+  run 1 C05: behaviour extract/extract | decision ok | reply ok | fields references_prior: got 'C04' want None
+  run 1 C06: behaviour clarify/clarify | decision ok | reply ok | fields missing_fields: got [] want ['order_id', 'pieces', 'due_date']
+  run 1 C07: behaviour extract/extract | decision ok | reply ok | fields customer: got None want 'Harbor Knits'
+  run 1 C09: behaviour decline-to-answer/extract | decision wrong behaviour, no decision to check | reply ok | fields customer: got None want 'Loom & Leaf';forced_workshop: got 'W4' want None;question_type: got 'status' want 'allocation'
+  run 1 C10: behaviour clarify/clarify | decision ok | reply ok | fields missing_fields: got [] want ['order_id']
+  run 1 C11: behaviour extract/extract | decision ok | reply ok | fields customer: got None want 'TrendCart'
+  run 1 C12: behaviour extract/extract | decision ok | reply ok | fields customer: got None want 'Bright Basics'
+  run 1 C13: behaviour extract/refuse | decision wrong behaviour, no decision to check | reply ok | fields product: got None want 'Beanie';forced_workshop: got None want 'W1'
+  run 1 C14: behaviour extract/extract | decision ok | reply ok | fields customer: got None want 'Cotton Club'
+  run 1 C15: behaviour extract/clarify | decision ok | reply ok | fields customer: got None want 'Northwind Apparel';missing_fields: got [] want ['due_date']
+  run 1 C16: behaviour extract/extract | decision ok | reply ok | fields product: got None want 'Cardigan'
+  run 1 C18: behaviour extract/extract | decision ok | reply ok | fields product: got None want 'Hoodie'
+  run 1 C19: behaviour decline-to-answer/clarify | decision ok | reply ok | fields customer: got None want 'Northwind Apparel';question_type: got 'status' want 'allocation';missing_fields: got [] want ['order_id']
+  run 1 C22: behaviour extract/extract | decision ok | reply ok | fields customer: got None want 'TrendCart'
+  run 1 C24: behaviour clarify/clarify | decision ok | reply ok | fields customer: got 'UrbanThread' want None;missing_fields: got ['pieces', 'due_date'] want ['order_id', 'pieces', 'due_date']
+  run 1 C25: behaviour clarify/clarify | decision ok | reply ok | fields customer: got None want 'TrendCart';due_date: got '2026-04-01' want None;references_prior: got None want 'C01'
+  run 1 C26: behaviour clarify/clarify | decision ok | reply ok | fields missing_fields: got ['order_id', 'pieces', 'due_date'] want ['order_id']
+  run 1 C28: behaviour refuse/refuse | decision ok | reply ok | fields missing_fields: got ['order_id'] want []
+  run 1 C32: behaviour decline-to-answer/clarify | decision ok | reply ok | fields customer: got None want 'Maple & Co';question_type: got 'status' want 'allocation';references_prior: got None want 'C06';missing_fields: got [] want ['order_id'
+  run 1 C35: behaviour clarify/clarify | decision ok | reply ok | fields due_date: got '2026-04-01' want None
+  run 1 C38: behaviour decline-to-answer/decline-to-answer | decision ok | reply ok | fields customer: got None want 'TrendCart';product: got None want 'Beanie'
+  run 2 C02: behaviour decline-to-answer/clarify | decision ok | reply ok | fields customer: got None want 'Cotton Club';question_type: got 'information' want 'allocation';references_prior: got 'C01' want None;missing_fields: got [] want ['ord
+  run 2 C03: behaviour extract/extract | decision ok | reply ok | fields customer: got None want 'Loom & Leaf'
+  run 2 C09: behaviour extract/extract | decision ok | reply ok | fields customer: got None want 'Loom & Leaf'
+  run 2 C10: behaviour clarify/clarify | decision ok | reply ok | fields missing_fields: got [] want ['order_id']
+  run 2 C11: behaviour extract/extract | decision ok | reply ok | fields customer: got None want 'TrendCart'
+  run 2 C13: behaviour refuse/refuse | decision ok | reply ok | fields product: got None want 'Beanie'
+  run 2 C15: behaviour decline-to-answer/clarify | decision ok | reply ok | fields customer: got None want 'Northwind Apparel';question_type: got 'status' want 'allocation';missing_fields: got [] want ['due_date']
+  run 2 C16: behaviour extract/extract | decision ok | reply ok | fields product: got None want 'Cardigan'
+  run 2 C17: behaviour refuse/refuse | decision ok | reply ok | fields product: got None want 'Crewneck sweater'
+  run 2 C18: behaviour extract/extract | decision recommended W5 is ineligible or excluded | reply ok | fields excluded_workshops: got [] want ['W5']
+  run 2 C19: behaviour decline-to-answer/clarify | decision ok | reply ok | fields question_type: got 'status' want 'allocation';missing_fields: got [] want ['order_id']
+  run 2 C20: behaviour extract/extract | decision recommended W5 is ineligible or excluded | reply ok | fields 
+  run 2 C21: behaviour extract/refuse | decision wrong behaviour, no decision to check | reply ok | fields 
+  run 2 C24: behaviour clarify/clarify | decision ok | reply ok | fields customer: got 'UrbanThread' want None;product: got None want 'Polo shirt'
+  run 2 C25: behaviour clarify/clarify | decision ok | reply ok | fields customer: got None want 'TrendCart';due_date: got '2026-04-01' want None;preference: got 'fastest' want 'none';references_prior: got None want 'C01'
+  run 2 C27: behaviour extract/extract | decision ok | reply ok | fields product: got None want 'Hoodie'
+  run 2 C29: behaviour decline-to-answer/decline-to-answer | decision ok | reply ok | fields customer: got 'Maple & Co' want None;references_prior: got 'C28' want None
+exit 0

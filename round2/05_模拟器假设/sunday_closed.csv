@@ -1,0 +1,29 @@
+﻿calendar,shock,policy,pct_late,late_days,mean_days,p90_days,pct_def_pcs,cost
+seven-day week (official),False,random,34.17,6.133,21.87,46.73,5.6,111780
+seven-day week (official),False,earliest_finish,1.67,0.178,8.26,14.37,7.18,115566
+seven-day week (official),False,lateness_v1,1.67,0.18,8.24,14.53,7.49,115592
+seven-day week (official),False,lateness (v2 rule),1.67,0.091,9.25,15.69,7.72,115438
+seven-day week (official),False,"lateness, Sunday-aware estimate",1.67,0.091,9.09,14.61,7.28,115417
+seven-day week (official),False,use_slack,1.0,0.066,13.97,24.5,6.78,105502
+seven-day week (official),False,hybrid,4.33,0.286,10.11,21.07,6.14,111238
+seven-day week (official),True,random,38.17,7.166,23.28,49.04,5.6,111780
+seven-day week (official),True,earliest_finish,1.92,0.191,8.51,15.34,7.12,115460
+seven-day week (official),True,lateness_v1,1.92,0.181,8.46,15.02,7.37,115284
+seven-day week (official),True,lateness (v2 rule),2.0,0.104,9.4,15.75,7.55,115252
+seven-day week (official),True,"lateness, Sunday-aware estimate",2.0,0.104,9.29,15.12,7.34,115161
+seven-day week (official),True,use_slack,1.67,0.101,13.99,24.27,6.9,106101
+seven-day week (official),True,hybrid,5.5,0.378,10.7,22.32,6.01,110996
+Sundays off,False,random,50.17,12.288,29.73,60.41,5.6,111780
+Sundays off,False,earliest_finish,3.67,0.325,10.48,19.74,7.33,113970
+Sundays off,False,lateness_v1,3.67,0.323,10.49,19.91,7.49,113898
+Sundays off,False,lateness (v2 rule),2.08,0.18,11.23,18.81,7.35,113616
+Sundays off,False,"lateness, Sunday-aware estimate",1.75,0.171,10.93,17.84,7.48,113357
+Sundays off,False,use_slack,2.25,0.16,15.7,26.59,6.87,108720
+Sundays off,False,hybrid,14.33,1.06,13.57,29.17,6.41,110360
+Sundays off,True,random,52.17,13.64,31.24,63.61,5.6,111780
+Sundays off,True,earliest_finish,4.08,0.366,10.88,20.4,7.73,113546
+Sundays off,True,lateness_v1,4.17,0.37,10.86,20.37,8.04,113470
+Sundays off,True,lateness (v2 rule),2.75,0.216,11.56,19.7,7.5,113284
+Sundays off,True,"lateness, Sunday-aware estimate",2.42,0.205,11.34,18.8,7.63,113164
+Sundays off,True,use_slack,3.33,0.23,16.04,26.92,6.82,109345
+Sundays off,True,hybrid,16.0,1.316,14.14,31.22,6.5,110516

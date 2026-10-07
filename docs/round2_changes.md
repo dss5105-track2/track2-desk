@@ -60,8 +60,8 @@
 
 ## 要全组定的事
 
-1. `lateness` 用新规则，还是用 `use_slack`（迟交更少、成本低 9%，周转慢到 14 天）。
-2. 语言层默认模型用 GPT-5 nano 还是 mini（每 30 条约 1 美分对 3.6 美分；mini 在两套消息上行为和决策全对）。
+1. `lateness` 用新规则，还是用 `use_slack`（迟交更少、成本低 9%，周转慢到 14 天）。2026-10-07：两个都保留，再讨论。
+2. ~~语言层默认模型~~：2026-10-07 定为 **GPT-5 mini**（每 30 条约 3.6 美分，两套消息上行为和决策全对）。nano 仍可在 `.env` 里选。
 3. 留出集的设定：仍是 4 月 1 日早上的另一批 44 条消息（比原计划的“4 月 2 日、账本延续”简单）。
 
 ## 怎么复现
@@ -71,8 +71,10 @@ python tests/test_kernel.py
 python tests/test_desk.py
 python tests/test_round2.py
 python eval/run_language_eval.py --labels <gold_labels.csv> --tag official30 --parser rules
-python eval/run_language_eval.py --labels <gold_labels.csv> --tag official30 --parser llm --model gpt-5-nano --runs 3
+python eval/run_language_eval.py --labels <gold_labels.csv> --tag official30 --parser llm --model gpt-5-mini --runs 3
 streamlit run app/streamlit_app.py
 ```
 
 带 `--parser llm` 的命令需要 `.env` 里的 key，会产生费用。`<gold_labels.csv>` 即 `eval/gold_labels.csv`。
+
+第二轮的结果文件、实验脚本、挑战集、汇报稿和失败案例清单都在仓库的 [`round2/`](../round2/README.md) 里。

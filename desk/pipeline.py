@@ -8,7 +8,7 @@ Two ways in:
 
 CLI:
     python desk/pipeline.py                  # rule parser, no network, no cost
-    python desk/pipeline.py --llm            # GPT-5 nano extraction (costs money; needs .env)
+    python desk/pipeline.py --llm            # LLM extraction, GPT-5 mini by default (costs money; needs .env)
     python desk/pipeline.py --only R12       # one request, full detail
 
 For every chat line, in timestamp order:
@@ -595,7 +595,7 @@ def score(decisions: Dict[str, dict]) -> dict:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--llm", action="store_true", help="use GPT-5 nano for parsing (costs money)")
+    ap.add_argument("--llm", action="store_true", help="use the LLM for parsing, GPT-5 mini by default (costs money)")
     ap.add_argument("--only", default=None, help="print full detail for one request id, e.g. R12")
     ap.add_argument("--objective", default="lateness", choices=list(OBJECTIVES))
     args = ap.parse_args()

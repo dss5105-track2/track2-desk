@@ -1,0 +1,5 @@
+﻿objective,shock,batches,expected_date_kept_pct,date_if_reworked_kept_pct,mean_days_between_the_two_dates
+lateness_v1,False,1200,94.33,100.0,1.78
+lateness_v1,True,1200,93.5,99.17,1.78
+lateness,False,1200,94.0,100.0,1.81
+lateness,True,1200,93.33,99.17,1.8
