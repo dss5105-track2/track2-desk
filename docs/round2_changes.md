@@ -2,7 +2,7 @@
 
 主目标：**最少迟交**。这一轮由 Claude 完成，未合并到 `main`，合并前请全组过一遍“要全组定的事”。
 
-> 本文件和 `tests/test_round2.py` 里有新九条请求的处理结果。六份独立分类交齐之前，这个分支不要发给还没交分类的同学。
+> **2026-10-07：30 条标签已定稿**，在 `eval/gold_labels.csv`。六人独立分类，25 条采用多数票，低于 5/6 的 5 条（R08 R13 R14 R24 R28）由全组表决。定稿和第二轮评估用的提议稿逐条相同，下面的评估结果不用重跑。
 
 ## 改了什么
 
@@ -56,6 +56,7 @@
 3. GPT-5 nano 认不出“交期要提前但还没说哪天”的非标准说法（挑战集 C15，3 遍都错），会按订单表的旧交期直接派。GPT-5 mini 没有这个问题。
 4. 估算器不知道 shock（车间关门）和周日休息。
 5. 界面没有做过真人测试，没有公开部署。
+6. `eval/compute_gold_facts.py` 是第一轮的重放脚本：它把标签为 `allocate` 的请求全部记入账本，不管按顺序时还来不来得及；`desk/pipeline.py` 只记入确认时仍能按时的推荐。所以两者的按顺序数字不同（例如 R30：脚本 4 月 20 日，系统 4 月 17 日）。第二轮的评估不用这个脚本，它的数字不要引用。
 
 ## 要全组定的事
 
@@ -74,4 +75,4 @@ python eval/run_language_eval.py --labels <gold_labels.csv> --tag official30 --p
 streamlit run app/streamlit_app.py
 ```
 
-带 `--parser llm` 的命令需要 `.env` 里的 key，会产生费用。标签文件定稿前不在仓库里。
+带 `--parser llm` 的命令需要 `.env` 里的 key，会产生费用。`<gold_labels.csv>` 即 `eval/gold_labels.csv`。
