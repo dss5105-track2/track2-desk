@@ -1,0 +1,3 @@
+repo: track2-desk-优化版, branch claude/round2, commit 1c6cb61
+seeds: 5105..5114
+simulator: harness/simulate.py v3 (untouched)

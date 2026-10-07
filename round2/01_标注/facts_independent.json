@@ -1,0 +1,3250 @@
+{
+ "morning": {
+  "R01": {
+   "session_excluded": [],
+   "matching_orders": [
+    "ORD-108 Harbor Knits Scarf 2000 due 2026-04-03",
+    "ORD-061 Harbor Knits Scarf 800 due 2026-04-05"
+   ]
+  },
+  "R02": {
+   "session_excluded": []
+  },
+  "R03": {
+   "session_excluded": [],
+   "matching_orders": [
+    "ORD-120 TrendCart Vest 1500 due 2026-03-17",
+    "ORD-020 TrendCart Vest 1200 due 2026-03-31",
+    "ORD-096 TrendCart Beanie 1000 due 2026-04-17",
+    "ORD-017 TrendCart Cardigan 800 due 2026-04-10",
+    "ORD-082 TrendCart Beanie 600 due 2026-05-01",
+    "ORD-005 TrendCart Scarf 500 due 2026-04-20"
+   ]
+  },
+  "R04": {
+   "session_excluded": [],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-041 Harbor Knits Beanie ACCESSORIES 600 pcs due 2026-04-21 stage WASHING",
+   "candidates": [
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 6.73,
+     "promised": "2026-04-08",
+     "late": 0,
+     "on_time": true,
+     "cost": 720,
+     "defect": 0.05,
+     "add_queue": 4.73076923076923
+    },
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 8.08,
+     "promised": "2026-04-09",
+     "late": 0,
+     "on_time": true,
+     "cost": 780,
+     "defect": 0.03,
+     "add_queue": 3.5823529411764703
+    },
+    {
+     "workshop": "W4",
+     "name": "Little Loom",
+     "finish": 10.16,
+     "promised": "2026-04-11",
+     "late": 0,
+     "on_time": true,
+     "cost": 960,
+     "defect": 0.02,
+     "add_queue": 8.657142857142857
+    }
+   ],
+   "on_time": [
+    "W6",
+    "W2",
+    "W4"
+   ],
+   "ineligible": {
+    "W1": "cannot make ACCESSORIES (makes TOPS)",
+    "W3": "cannot make ACCESSORIES (makes TOPS)",
+    "W5": "cannot make ACCESSORIES (makes TOPS)",
+    "W7": "status SUSPENDED",
+    "W8": "cannot make ACCESSORIES (makes TOPS)"
+   },
+   "reference": {
+    "workshop": "W6",
+    "name": "Nimble Needle",
+    "finish": 6.73,
+    "promised": "2026-04-08",
+    "late": 0,
+    "on_time": true,
+    "cost": 720,
+    "defect": 0.05,
+    "add_queue": 4.73076923076923
+   }
+  },
+  "R05": {
+   "session_excluded": [],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null
+  },
+  "R06": {
+   "session_excluded": [],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-096 TrendCart Beanie ACCESSORIES 1000 pcs due 2026-04-17 stage KNITTING",
+   "candidates": [
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 9.88,
+     "promised": "2026-04-11",
+     "late": 0,
+     "on_time": true,
+     "cost": 1200,
+     "defect": 0.05,
+     "add_queue": 7.884615384615385
+    },
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 10.47,
+     "promised": "2026-04-11",
+     "late": 0,
+     "on_time": true,
+     "cost": 1300,
+     "defect": 0.03,
+     "add_queue": 5.970588235294118
+    },
+    {
+     "workshop": "W4",
+     "name": "Little Loom",
+     "finish": 15.93,
+     "promised": "2026-04-17",
+     "late": 0,
+     "on_time": true,
+     "cost": 1600,
+     "defect": 0.02,
+     "add_queue": 14.428571428571429
+    }
+   ],
+   "on_time": [
+    "W6",
+    "W2",
+    "W4"
+   ],
+   "ineligible": {
+    "W1": "cannot make ACCESSORIES (makes TOPS)",
+    "W3": "cannot make ACCESSORIES (makes TOPS)",
+    "W5": "cannot make ACCESSORIES (makes TOPS)",
+    "W7": "status SUSPENDED",
+    "W8": "cannot make ACCESSORIES (makes TOPS)"
+   },
+   "reference": {
+    "workshop": "W6",
+    "name": "Nimble Needle",
+    "finish": 9.88,
+    "promised": "2026-04-11",
+    "late": 0,
+    "on_time": true,
+    "cost": 1200,
+    "defect": 0.05,
+    "add_queue": 7.884615384615385
+   }
+  },
+  "R07": {
+   "session_excluded": [],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-063 Loom & Leaf Cardigan TOPS 100 pcs due 2026-04-29 stage KNITTING",
+   "candidates": [
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 2.79,
+     "promised": "2026-04-04",
+     "late": 0,
+     "on_time": true,
+     "cost": 120,
+     "defect": 0.05,
+     "add_queue": 0.7884615384615385
+    },
+    {
+     "workshop": "W8",
+     "name": "FreshStart",
+     "finish": 3.02,
+     "promised": "2026-04-04",
+     "late": 0,
+     "on_time": true,
+     "cost": 100,
+     "defect": 0.04,
+     "add_queue": 1.02
+    },
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 5.1,
+     "promised": "2026-04-06",
+     "late": 0,
+     "on_time": true,
+     "cost": 130,
+     "defect": 0.03,
+     "add_queue": 0.5970588235294118
+    },
+    {
+     "workshop": "W1",
+     "name": "QuickStitch",
+     "finish": 5.35,
+     "promised": "2026-04-06",
+     "late": 0,
+     "on_time": true,
+     "cost": 150,
+     "defect": 0.12,
+     "add_queue": 0.35333333333333333
+    },
+    {
+     "workshop": "W5",
+     "name": "GiantWeave",
+     "finish": 7.26,
+     "promised": "2026-04-08",
+     "late": 0,
+     "on_time": true,
+     "cost": 110,
+     "defect": 0.06,
+     "add_queue": 0.2575
+    },
+    {
+     "workshop": "W3",
+     "name": "BudgetWorks",
+     "finish": 8.45,
+     "promised": "2026-04-09",
+     "late": 0,
+     "on_time": true,
+     "cost": 80,
+     "defect": 0.09,
+     "add_queue": 0.4543478260869565
+    }
+   ],
+   "on_time": [
+    "W6",
+    "W8",
+    "W2",
+    "W1",
+    "W5",
+    "W3"
+   ],
+   "ineligible": {
+    "W4": "cannot make TOPS (makes ACCESSORIES)",
+    "W7": "status SUSPENDED"
+   },
+   "reference": {
+    "workshop": "W6",
+    "name": "Nimble Needle",
+    "finish": 2.79,
+    "promised": "2026-04-04",
+    "late": 0,
+    "on_time": true,
+    "cost": 120,
+    "defect": 0.05,
+    "add_queue": 0.7884615384615385
+   }
+  },
+  "R08": {
+   "session_excluded": [],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-073 Loom & Leaf Hoodie TOPS 400 pcs due 2026-04-20 stage ASSEMBLY",
+   "candidates": [
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 5.15,
+     "promised": "2026-04-06",
+     "late": 0,
+     "on_time": true,
+     "cost": 480,
+     "defect": 0.05,
+     "add_queue": 3.153846153846154
+    },
+    {
+     "workshop": "W1",
+     "name": "QuickStitch",
+     "finish": 6.41,
+     "promised": "2026-04-07",
+     "late": 0,
+     "on_time": true,
+     "cost": 600,
+     "defect": 0.12,
+     "add_queue": 1.4133333333333333
+    },
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 6.89,
+     "promised": "2026-04-08",
+     "late": 0,
+     "on_time": true,
+     "cost": 520,
+     "defect": 0.03,
+     "add_queue": 2.388235294117647
+    },
+    {
+     "workshop": "W5",
+     "name": "GiantWeave",
+     "finish": 8.03,
+     "promised": "2026-04-09",
+     "late": 0,
+     "on_time": true,
+     "cost": 440,
+     "defect": 0.06,
+     "add_queue": 1.03
+    },
+    {
+     "workshop": "W3",
+     "name": "BudgetWorks",
+     "finish": 9.82,
+     "promised": "2026-04-11",
+     "late": 0,
+     "on_time": true,
+     "cost": 320,
+     "defect": 0.09,
+     "add_queue": 1.817391304347826
+    }
+   ],
+   "on_time": [
+    "W6",
+    "W1",
+    "W2",
+    "W5",
+    "W3"
+   ],
+   "ineligible": {
+    "W4": "cannot make TOPS (makes ACCESSORIES)",
+    "W7": "status SUSPENDED",
+    "W8": "batch 400 over its 300-piece limit"
+   },
+   "forced": {
+    "workshop": "W8",
+    "eligible": false,
+    "reason": "batch 400 over its 300-piece limit"
+   },
+   "reference": {
+    "workshop": "W6",
+    "name": "Nimble Needle",
+    "finish": 5.15,
+    "promised": "2026-04-06",
+    "late": 0,
+    "on_time": true,
+    "cost": 480,
+    "defect": 0.05,
+    "add_queue": 3.153846153846154
+   }
+  },
+  "R09": {
+   "session_excluded": [],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-045 Cotton Club Vest TOPS 150 pcs due 2026-04-09 stage WASHING",
+   "candidates": [
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 3.18,
+     "promised": "2026-04-04",
+     "late": 0,
+     "on_time": true,
+     "cost": 180,
+     "defect": 0.05,
+     "add_queue": 1.1826923076923075
+    },
+    {
+     "workshop": "W8",
+     "name": "FreshStart",
+     "finish": 3.53,
+     "promised": "2026-04-05",
+     "late": 0,
+     "on_time": true,
+     "cost": 150,
+     "defect": 0.04,
+     "add_queue": 1.53
+    },
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 5.4,
+     "promised": "2026-04-06",
+     "late": 0,
+     "on_time": true,
+     "cost": 195,
+     "defect": 0.03,
+     "add_queue": 0.8955882352941176
+    },
+    {
+     "workshop": "W1",
+     "name": "QuickStitch",
+     "finish": 5.53,
+     "promised": "2026-04-07",
+     "late": 0,
+     "on_time": true,
+     "cost": 225,
+     "defect": 0.12,
+     "add_queue": 0.53
+    },
+    {
+     "workshop": "W5",
+     "name": "GiantWeave",
+     "finish": 7.39,
+     "promised": "2026-04-08",
+     "late": 0,
+     "on_time": true,
+     "cost": 165,
+     "defect": 0.06,
+     "add_queue": 0.38625
+    },
+    {
+     "workshop": "W3",
+     "name": "BudgetWorks",
+     "finish": 8.68,
+     "promised": "2026-04-10",
+     "late": 1,
+     "on_time": false,
+     "cost": 120,
+     "defect": 0.09,
+     "add_queue": 0.6815217391304348
+    }
+   ],
+   "on_time": [
+    "W6",
+    "W8",
+    "W2",
+    "W1",
+    "W5"
+   ],
+   "ineligible": {
+    "W4": "cannot make TOPS (makes ACCESSORIES)",
+    "W7": "status SUSPENDED"
+   },
+   "reference": {
+    "workshop": "W6",
+    "name": "Nimble Needle",
+    "finish": 3.18,
+    "promised": "2026-04-04",
+    "late": 0,
+    "on_time": true,
+    "cost": 180,
+    "defect": 0.05,
+    "add_queue": 1.1826923076923075
+   }
+  },
+  "R10": {
+   "session_excluded": [],
+   "matching_orders": [
+    "ORD-040 Loom & Leaf Hoodie 1200 due 2026-04-21",
+    "ORD-008 Loom & Leaf Polo shirt 600 due 2026-04-09",
+    "ORD-073 Loom & Leaf Hoodie 400 due 2026-04-20",
+    "ORD-024 Loom & Leaf Vest 300 due 2026-04-15",
+    "ORD-035 Loom & Leaf Beanie 300 due 2026-04-29",
+    "ORD-063 Loom & Leaf Cardigan 100 due 2026-04-29"
+   ]
+  },
+  "R11": {
+   "session_excluded": [],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-008 Loom & Leaf Polo shirt TOPS 600 pcs due 2026-04-09 stage KNITTING",
+   "candidates": [
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 6.73,
+     "promised": "2026-04-08",
+     "late": 0,
+     "on_time": true,
+     "cost": 720,
+     "defect": 0.05,
+     "add_queue": 4.73076923076923
+    },
+    {
+     "workshop": "W1",
+     "name": "QuickStitch",
+     "finish": 7.12,
+     "promised": "2026-04-08",
+     "late": 0,
+     "on_time": true,
+     "cost": 900,
+     "defect": 0.12,
+     "add_queue": 2.12
+    },
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 8.08,
+     "promised": "2026-04-09",
+     "late": 0,
+     "on_time": true,
+     "cost": 780,
+     "defect": 0.03,
+     "add_queue": 3.5823529411764703
+    },
+    {
+     "workshop": "W5",
+     "name": "GiantWeave",
+     "finish": 8.54,
+     "promised": "2026-04-10",
+     "late": 1,
+     "on_time": false,
+     "cost": 660,
+     "defect": 0.06,
+     "add_queue": 1.545
+    },
+    {
+     "workshop": "W3",
+     "name": "BudgetWorks",
+     "finish": 10.73,
+     "promised": "2026-04-12",
+     "late": 3,
+     "on_time": false,
+     "cost": 480,
+     "defect": 0.09,
+     "add_queue": 2.726086956521739
+    }
+   ],
+   "on_time": [
+    "W6",
+    "W1",
+    "W2"
+   ],
+   "ineligible": {
+    "W4": "cannot make TOPS (makes ACCESSORIES)",
+    "W7": "status SUSPENDED",
+    "W8": "batch 600 over its 300-piece limit"
+   },
+   "forced": {
+    "workshop": "W7",
+    "eligible": false,
+    "reason": "status SUSPENDED"
+   },
+   "reference": {
+    "workshop": "W6",
+    "name": "Nimble Needle",
+    "finish": 6.73,
+    "promised": "2026-04-08",
+    "late": 0,
+    "on_time": true,
+    "cost": 720,
+    "defect": 0.05,
+    "add_queue": 4.73076923076923
+   }
+  },
+  "R12": {
+   "session_excluded": [],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-053 UrbanThread Polo shirt TOPS 800 pcs due 2026-04-10 stage ASSEMBLY",
+   "candidates": [
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 8.31,
+     "promised": "2026-04-09",
+     "late": 0,
+     "on_time": true,
+     "cost": 960,
+     "defect": 0.05,
+     "add_queue": 6.307692307692308
+    },
+    {
+     "workshop": "W5",
+     "name": "GiantWeave",
+     "finish": 9.06,
+     "promised": "2026-04-10",
+     "late": 0,
+     "on_time": true,
+     "cost": 880,
+     "defect": 0.06,
+     "add_queue": 2.06
+    },
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 9.28,
+     "promised": "2026-04-10",
+     "late": 0,
+     "on_time": true,
+     "cost": 1040,
+     "defect": 0.03,
+     "add_queue": 4.776470588235294
+    },
+    {
+     "workshop": "W3",
+     "name": "BudgetWorks",
+     "finish": 11.63,
+     "promised": "2026-04-13",
+     "late": 3,
+     "on_time": false,
+     "cost": 640,
+     "defect": 0.09,
+     "add_queue": 3.634782608695652
+    }
+   ],
+   "on_time": [
+    "W6",
+    "W5",
+    "W2"
+   ],
+   "ineligible": {
+    "W4": "cannot make TOPS (makes ACCESSORIES)",
+    "W7": "status SUSPENDED",
+    "W8": "batch 800 over its 300-piece limit"
+   },
+   "reference": {
+    "workshop": "W6",
+    "name": "Nimble Needle",
+    "finish": 8.31,
+    "promised": "2026-04-09",
+    "late": 0,
+    "on_time": true,
+    "cost": 960,
+    "defect": 0.05,
+    "add_queue": 6.307692307692308
+   }
+  },
+  "R13": {
+   "session_excluded": [
+    "W1"
+   ],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null
+  },
+  "R14": {
+   "session_excluded": [
+    "W1"
+   ],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-103 Bright Basics Scarf ACCESSORIES 2000 pcs due 2026-04-04 stage ASSEMBLY",
+   "candidates": [
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 16.44,
+     "promised": "2026-04-17",
+     "late": 13,
+     "on_time": false,
+     "cost": 2600,
+     "defect": 0.03,
+     "add_queue": 11.941176470588236
+    },
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 17.77,
+     "promised": "2026-04-19",
+     "late": 15,
+     "on_time": false,
+     "cost": 2400,
+     "defect": 0.05,
+     "add_queue": 15.76923076923077
+    },
+    {
+     "workshop": "W4",
+     "name": "Little Loom",
+     "finish": 30.36,
+     "promised": "2026-05-01",
+     "late": 27,
+     "on_time": false,
+     "cost": 3200,
+     "defect": 0.02,
+     "add_queue": 28.857142857142858
+    }
+   ],
+   "on_time": [],
+   "ineligible": {
+    "W1": "cannot make ACCESSORIES (makes TOPS)",
+    "W3": "cannot make ACCESSORIES (makes TOPS)",
+    "W5": "cannot make ACCESSORIES (makes TOPS)",
+    "W7": "status SUSPENDED",
+    "W8": "cannot make ACCESSORIES (makes TOPS)"
+   },
+   "forced": {
+    "workshop": "W1",
+    "eligible": false,
+    "reason": "cannot make ACCESSORIES (makes TOPS)"
+   },
+   "reference": {
+    "workshop": "W2",
+    "name": "SteadyHands",
+    "finish": 16.44,
+    "promised": "2026-04-17",
+    "late": 13,
+    "on_time": false,
+    "cost": 2600,
+    "defect": 0.03,
+    "add_queue": 11.941176470588236
+   }
+  },
+  "R15": {
+   "session_excluded": [
+    "W1"
+   ],
+   "matching_orders": [
+    "ORD-040 Loom & Leaf Hoodie 1200 due 2026-04-21",
+    "ORD-008 Loom & Leaf Polo shirt 600 due 2026-04-09",
+    "ORD-073 Loom & Leaf Hoodie 400 due 2026-04-20",
+    "ORD-024 Loom & Leaf Vest 300 due 2026-04-15",
+    "ORD-035 Loom & Leaf Beanie 300 due 2026-04-29",
+    "ORD-063 Loom & Leaf Cardigan 100 due 2026-04-29"
+   ]
+  },
+  "R16": {
+   "session_excluded": [
+    "W1"
+   ],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-024 Loom & Leaf Vest TOPS 300 pcs due 2026-04-15 stage ASSEMBLY",
+   "candidates": [
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 4.37,
+     "promised": "2026-04-05",
+     "late": 0,
+     "on_time": true,
+     "cost": 360,
+     "defect": 0.05,
+     "add_queue": 2.365384615384615
+    },
+    {
+     "workshop": "W8",
+     "name": "FreshStart",
+     "finish": 5.06,
+     "promised": "2026-04-06",
+     "late": 0,
+     "on_time": true,
+     "cost": 300,
+     "defect": 0.04,
+     "add_queue": 3.06
+    },
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 6.29,
+     "promised": "2026-04-07",
+     "late": 0,
+     "on_time": true,
+     "cost": 390,
+     "defect": 0.03,
+     "add_queue": 1.7911764705882351
+    },
+    {
+     "workshop": "W5",
+     "name": "GiantWeave",
+     "finish": 7.77,
+     "promised": "2026-04-09",
+     "late": 0,
+     "on_time": true,
+     "cost": 330,
+     "defect": 0.06,
+     "add_queue": 0.7725
+    },
+    {
+     "workshop": "W3",
+     "name": "BudgetWorks",
+     "finish": 9.36,
+     "promised": "2026-04-10",
+     "late": 0,
+     "on_time": true,
+     "cost": 240,
+     "defect": 0.09,
+     "add_queue": 1.3630434782608696
+    }
+   ],
+   "on_time": [
+    "W6",
+    "W8",
+    "W2",
+    "W5",
+    "W3"
+   ],
+   "ineligible": {
+    "W4": "cannot make TOPS (makes ACCESSORIES)",
+    "W7": "status SUSPENDED"
+   },
+   "reference": {
+    "workshop": "W6",
+    "name": "Nimble Needle",
+    "finish": 4.37,
+    "promised": "2026-04-05",
+    "late": 0,
+    "on_time": true,
+    "cost": 360,
+    "defect": 0.05,
+    "add_queue": 2.365384615384615
+   }
+  },
+  "R17": {
+   "session_excluded": [
+    "W1"
+   ],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-017 TrendCart Cardigan TOPS 800 pcs due 2026-04-10 stage KNITTING",
+   "candidates": [
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 8.31,
+     "promised": "2026-04-09",
+     "late": 0,
+     "on_time": true,
+     "cost": 960,
+     "defect": 0.05,
+     "add_queue": 6.307692307692308
+    },
+    {
+     "workshop": "W5",
+     "name": "GiantWeave",
+     "finish": 9.06,
+     "promised": "2026-04-10",
+     "late": 0,
+     "on_time": true,
+     "cost": 880,
+     "defect": 0.06,
+     "add_queue": 2.06
+    },
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 9.28,
+     "promised": "2026-04-10",
+     "late": 0,
+     "on_time": true,
+     "cost": 1040,
+     "defect": 0.03,
+     "add_queue": 4.776470588235294
+    },
+    {
+     "workshop": "W3",
+     "name": "BudgetWorks",
+     "finish": 11.63,
+     "promised": "2026-04-13",
+     "late": 3,
+     "on_time": false,
+     "cost": 640,
+     "defect": 0.09,
+     "add_queue": 3.634782608695652
+    }
+   ],
+   "on_time": [
+    "W6",
+    "W5",
+    "W2"
+   ],
+   "ineligible": {
+    "W4": "cannot make TOPS (makes ACCESSORIES)",
+    "W7": "status SUSPENDED",
+    "W8": "batch 800 over its 300-piece limit"
+   },
+   "reference": {
+    "workshop": "W6",
+    "name": "Nimble Needle",
+    "finish": 8.31,
+    "promised": "2026-04-09",
+    "late": 0,
+    "on_time": true,
+    "cost": 960,
+    "defect": 0.05,
+    "add_queue": 6.307692307692308
+   }
+  },
+  "R18": {
+   "session_excluded": [
+    "W1"
+   ],
+   "order_missing": true
+  },
+  "R19": {
+   "session_excluded": [
+    "W1"
+   ],
+   "matching_orders": [
+    "ORD-040 Loom & Leaf Hoodie 1200 due 2026-04-21",
+    "ORD-010 Cotton Club Cardigan 1000 due 2026-04-25",
+    "ORD-017 TrendCart Cardigan 800 due 2026-04-10",
+    "ORD-095 Bright Basics Hoodie 800 due 2026-04-26",
+    "ORD-008 Loom & Leaf Polo shirt 600 due 2026-04-09",
+    "ORD-082 TrendCart Beanie 600 due 2026-05-01",
+    "ORD-015 UrbanThread Vest 300 due 2026-04-16",
+    "ORD-024 Loom & Leaf Vest 300 due 2026-04-15",
+    "ORD-035 Loom & Leaf Beanie 300 due 2026-04-29",
+    "ORD-063 Loom & Leaf Cardigan 100 due 2026-04-29"
+   ]
+  },
+  "R20": {
+   "session_excluded": [
+    "W1"
+   ],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-103 Bright Basics Scarf ACCESSORIES 2000 pcs due 2026-04-04 stage ASSEMBLY",
+   "candidates": [
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 16.44,
+     "promised": "2026-04-17",
+     "late": 13,
+     "on_time": false,
+     "cost": 2600,
+     "defect": 0.03,
+     "add_queue": 11.941176470588236
+    },
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 17.77,
+     "promised": "2026-04-19",
+     "late": 15,
+     "on_time": false,
+     "cost": 2400,
+     "defect": 0.05,
+     "add_queue": 15.76923076923077
+    },
+    {
+     "workshop": "W4",
+     "name": "Little Loom",
+     "finish": 30.36,
+     "promised": "2026-05-01",
+     "late": 27,
+     "on_time": false,
+     "cost": 3200,
+     "defect": 0.02,
+     "add_queue": 28.857142857142858
+    }
+   ],
+   "on_time": [],
+   "ineligible": {
+    "W1": "cannot make ACCESSORIES (makes TOPS)",
+    "W3": "cannot make ACCESSORIES (makes TOPS)",
+    "W5": "cannot make ACCESSORIES (makes TOPS)",
+    "W7": "status SUSPENDED",
+    "W8": "cannot make ACCESSORIES (makes TOPS)"
+   },
+   "reference": {
+    "workshop": "W2",
+    "name": "SteadyHands",
+    "finish": 16.44,
+    "promised": "2026-04-17",
+    "late": 13,
+    "on_time": false,
+    "cost": 2600,
+    "defect": 0.03,
+    "add_queue": 11.941176470588236
+   }
+  },
+  "R21": {
+   "session_excluded": [
+    "W1"
+   ],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-081 Harbor Knits Crewneck sweater TOPS 1500 pcs due 2026-04-13 stage ASSEMBLY",
+   "candidates": [
+    {
+     "workshop": "W5",
+     "name": "GiantWeave",
+     "finish": 10.86,
+     "promised": "2026-04-12",
+     "late": 0,
+     "on_time": true,
+     "cost": 1650,
+     "defect": 0.06,
+     "add_queue": 3.8625
+    },
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 13.46,
+     "promised": "2026-04-14",
+     "late": 1,
+     "on_time": false,
+     "cost": 1950,
+     "defect": 0.03,
+     "add_queue": 8.955882352941178
+    },
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 13.83,
+     "promised": "2026-04-15",
+     "late": 2,
+     "on_time": false,
+     "cost": 1800,
+     "defect": 0.05,
+     "add_queue": 11.826923076923077
+    },
+    {
+     "workshop": "W3",
+     "name": "BudgetWorks",
+     "finish": 14.82,
+     "promised": "2026-04-16",
+     "late": 3,
+     "on_time": false,
+     "cost": 1200,
+     "defect": 0.09,
+     "add_queue": 6.815217391304348
+    }
+   ],
+   "on_time": [
+    "W5"
+   ],
+   "ineligible": {
+    "W4": "cannot make TOPS (makes ACCESSORIES)",
+    "W7": "status SUSPENDED",
+    "W8": "batch 1500 over its 300-piece limit"
+   },
+   "reference": {
+    "workshop": "W5",
+    "name": "GiantWeave",
+    "finish": 10.86,
+    "promised": "2026-04-12",
+    "late": 0,
+    "on_time": true,
+    "cost": 1650,
+    "defect": 0.06,
+    "add_queue": 3.8625
+   }
+  },
+  "R22": {
+   "session_excluded": [
+    "W1"
+   ],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-040 Loom & Leaf Hoodie TOPS 1200 pcs due 2026-04-21 stage KNITTING",
+   "candidates": [
+    {
+     "workshop": "W5",
+     "name": "GiantWeave",
+     "finish": 10.09,
+     "promised": "2026-04-11",
+     "late": 0,
+     "on_time": true,
+     "cost": 1320,
+     "defect": 0.06,
+     "add_queue": 3.09
+    },
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 11.46,
+     "promised": "2026-04-12",
+     "late": 0,
+     "on_time": true,
+     "cost": 1440,
+     "defect": 0.05,
+     "add_queue": 9.46153846153846
+    },
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 11.66,
+     "promised": "2026-04-13",
+     "late": 0,
+     "on_time": true,
+     "cost": 1560,
+     "defect": 0.03,
+     "add_queue": 7.164705882352941
+    },
+    {
+     "workshop": "W3",
+     "name": "BudgetWorks",
+     "finish": 13.45,
+     "promised": "2026-04-14",
+     "late": 0,
+     "on_time": true,
+     "cost": 960,
+     "defect": 0.09,
+     "add_queue": 5.452173913043478
+    }
+   ],
+   "on_time": [
+    "W5",
+    "W6",
+    "W2",
+    "W3"
+   ],
+   "ineligible": {
+    "W4": "cannot make TOPS (makes ACCESSORIES)",
+    "W7": "status SUSPENDED",
+    "W8": "batch 1200 over its 300-piece limit"
+   },
+   "reference": {
+    "workshop": "W5",
+    "name": "GiantWeave",
+    "finish": 10.09,
+    "promised": "2026-04-11",
+    "late": 0,
+    "on_time": true,
+    "cost": 1320,
+    "defect": 0.06,
+    "add_queue": 3.09
+   }
+  },
+  "R23": {
+   "session_excluded": [
+    "W1"
+   ],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-005 TrendCart Scarf ACCESSORIES 500 pcs due 2026-04-20 stage KNITTING",
+   "candidates": [
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 5.94,
+     "promised": "2026-04-07",
+     "late": 0,
+     "on_time": true,
+     "cost": 600,
+     "defect": 0.05,
+     "add_queue": 3.9423076923076925
+    },
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 7.49,
+     "promised": "2026-04-08",
+     "late": 0,
+     "on_time": true,
+     "cost": 650,
+     "defect": 0.03,
+     "add_queue": 2.985294117647059
+    },
+    {
+     "workshop": "W4",
+     "name": "Little Loom",
+     "finish": 8.71,
+     "promised": "2026-04-10",
+     "late": 0,
+     "on_time": true,
+     "cost": 800,
+     "defect": 0.02,
+     "add_queue": 7.214285714285714
+    }
+   ],
+   "on_time": [
+    "W6",
+    "W2",
+    "W4"
+   ],
+   "ineligible": {
+    "W1": "cannot make ACCESSORIES (makes TOPS)",
+    "W3": "cannot make ACCESSORIES (makes TOPS)",
+    "W5": "cannot make ACCESSORIES (makes TOPS)",
+    "W7": "status SUSPENDED",
+    "W8": "cannot make ACCESSORIES (makes TOPS)"
+   },
+   "reference": {
+    "workshop": "W6",
+    "name": "Nimble Needle",
+    "finish": 5.94,
+    "promised": "2026-04-07",
+    "late": 0,
+    "on_time": true,
+    "cost": 600,
+    "defect": 0.05,
+    "add_queue": 3.9423076923076925
+   }
+  },
+  "R24": {
+   "session_excluded": [
+    "W1"
+   ],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-015 UrbanThread Vest TOPS 300 pcs due 2026-04-16 stage ASSEMBLY",
+   "candidates": [
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 4.37,
+     "promised": "2026-04-05",
+     "late": 0,
+     "on_time": true,
+     "cost": 360,
+     "defect": 0.05,
+     "add_queue": 2.365384615384615
+    },
+    {
+     "workshop": "W8",
+     "name": "FreshStart",
+     "finish": 5.06,
+     "promised": "2026-04-06",
+     "late": 0,
+     "on_time": true,
+     "cost": 300,
+     "defect": 0.04,
+     "add_queue": 3.06
+    },
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 6.29,
+     "promised": "2026-04-07",
+     "late": 0,
+     "on_time": true,
+     "cost": 390,
+     "defect": 0.03,
+     "add_queue": 1.7911764705882351
+    },
+    {
+     "workshop": "W5",
+     "name": "GiantWeave",
+     "finish": 7.77,
+     "promised": "2026-04-09",
+     "late": 0,
+     "on_time": true,
+     "cost": 330,
+     "defect": 0.06,
+     "add_queue": 0.7725
+    },
+    {
+     "workshop": "W3",
+     "name": "BudgetWorks",
+     "finish": 9.36,
+     "promised": "2026-04-10",
+     "late": 0,
+     "on_time": true,
+     "cost": 240,
+     "defect": 0.09,
+     "add_queue": 1.3630434782608696
+    }
+   ],
+   "on_time": [
+    "W6",
+    "W8",
+    "W2",
+    "W5",
+    "W3"
+   ],
+   "ineligible": {
+    "W4": "cannot make TOPS (makes ACCESSORIES)",
+    "W7": "status SUSPENDED"
+   },
+   "forced": {
+    "workshop": "W4",
+    "eligible": false,
+    "reason": "cannot make TOPS (makes ACCESSORIES)"
+   },
+   "reference": {
+    "workshop": "W6",
+    "name": "Nimble Needle",
+    "finish": 4.37,
+    "promised": "2026-04-05",
+    "late": 0,
+    "on_time": true,
+    "cost": 360,
+    "defect": 0.05,
+    "add_queue": 2.365384615384615
+   }
+  },
+  "R25": {
+   "session_excluded": [
+    "W1"
+   ],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-109 Harbor Knits Vest TOPS 500 pcs due 2026-04-13 stage WASHING",
+   "candidates": [
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 5.94,
+     "promised": "2026-04-07",
+     "late": 0,
+     "on_time": true,
+     "cost": 600,
+     "defect": 0.05,
+     "add_queue": 3.9423076923076925
+    },
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 7.49,
+     "promised": "2026-04-08",
+     "late": 0,
+     "on_time": true,
+     "cost": 650,
+     "defect": 0.03,
+     "add_queue": 2.985294117647059
+    },
+    {
+     "workshop": "W5",
+     "name": "GiantWeave",
+     "finish": 8.29,
+     "promised": "2026-04-09",
+     "late": 0,
+     "on_time": true,
+     "cost": 550,
+     "defect": 0.06,
+     "add_queue": 1.2875
+    }
+   ],
+   "on_time": [
+    "W6",
+    "W2",
+    "W5"
+   ],
+   "ineligible": {
+    "W4": "cannot make TOPS (makes ACCESSORIES)",
+    "W7": "status SUSPENDED",
+    "W8": "batch 500 over its 300-piece limit"
+   },
+   "reference": {
+    "workshop": "W6",
+    "name": "Nimble Needle",
+    "finish": 5.94,
+    "promised": "2026-04-07",
+    "late": 0,
+    "on_time": true,
+    "cost": 600,
+    "defect": 0.05,
+    "add_queue": 3.9423076923076925
+   }
+  },
+  "R26": {
+   "session_excluded": [
+    "W1"
+   ],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-010 Cotton Club Cardigan TOPS 1000 pcs due 2026-04-25 stage KNITTING",
+   "candidates": [
+    {
+     "workshop": "W5",
+     "name": "GiantWeave",
+     "finish": 9.57,
+     "promised": "2026-04-11",
+     "late": 0,
+     "on_time": true,
+     "cost": 1100,
+     "defect": 0.06,
+     "add_queue": 2.575
+    },
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 9.88,
+     "promised": "2026-04-11",
+     "late": 0,
+     "on_time": true,
+     "cost": 1200,
+     "defect": 0.05,
+     "add_queue": 7.884615384615385
+    },
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 10.47,
+     "promised": "2026-04-11",
+     "late": 0,
+     "on_time": true,
+     "cost": 1300,
+     "defect": 0.03,
+     "add_queue": 5.970588235294118
+    },
+    {
+     "workshop": "W3",
+     "name": "BudgetWorks",
+     "finish": 12.54,
+     "promised": "2026-04-14",
+     "late": 0,
+     "on_time": true,
+     "cost": 800,
+     "defect": 0.09,
+     "add_queue": 4.5434782608695645
+    }
+   ],
+   "on_time": [
+    "W5",
+    "W6",
+    "W2",
+    "W3"
+   ],
+   "ineligible": {
+    "W4": "cannot make TOPS (makes ACCESSORIES)",
+    "W7": "status SUSPENDED",
+    "W8": "batch 1000 over its 300-piece limit"
+   },
+   "reference": {
+    "workshop": "W5",
+    "name": "GiantWeave",
+    "finish": 9.57,
+    "promised": "2026-04-11",
+    "late": 0,
+    "on_time": true,
+    "cost": 1100,
+    "defect": 0.06,
+    "add_queue": 2.575
+   }
+  },
+  "R27": {
+   "session_excluded": [
+    "W1"
+   ],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-095 Bright Basics Hoodie TOPS 800 pcs due 2026-04-26 stage KNITTING",
+   "candidates": [
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 8.31,
+     "promised": "2026-04-09",
+     "late": 0,
+     "on_time": true,
+     "cost": 960,
+     "defect": 0.05,
+     "add_queue": 6.307692307692308
+    },
+    {
+     "workshop": "W5",
+     "name": "GiantWeave",
+     "finish": 9.06,
+     "promised": "2026-04-10",
+     "late": 0,
+     "on_time": true,
+     "cost": 880,
+     "defect": 0.06,
+     "add_queue": 2.06
+    },
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 9.28,
+     "promised": "2026-04-10",
+     "late": 0,
+     "on_time": true,
+     "cost": 1040,
+     "defect": 0.03,
+     "add_queue": 4.776470588235294
+    },
+    {
+     "workshop": "W3",
+     "name": "BudgetWorks",
+     "finish": 11.63,
+     "promised": "2026-04-13",
+     "late": 0,
+     "on_time": true,
+     "cost": 640,
+     "defect": 0.09,
+     "add_queue": 3.634782608695652
+    }
+   ],
+   "on_time": [
+    "W6",
+    "W5",
+    "W2",
+    "W3"
+   ],
+   "ineligible": {
+    "W4": "cannot make TOPS (makes ACCESSORIES)",
+    "W7": "status SUSPENDED",
+    "W8": "batch 800 over its 300-piece limit"
+   },
+   "reference": {
+    "workshop": "W2",
+    "name": "SteadyHands",
+    "finish": 9.28,
+    "promised": "2026-04-10",
+    "late": 0,
+    "on_time": true,
+    "cost": 1040,
+    "defect": 0.03,
+    "add_queue": 4.776470588235294
+   }
+  },
+  "R28": {
+   "session_excluded": [
+    "W1"
+   ],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-002 Cotton Club Crewneck sweater TOPS 1000 pcs due 2026-03-29 stage WASHING",
+   "candidates": [
+    {
+     "workshop": "W5",
+     "name": "GiantWeave",
+     "finish": 9.57,
+     "promised": "2026-04-11",
+     "late": 13,
+     "on_time": false,
+     "cost": 1100,
+     "defect": 0.06,
+     "add_queue": 2.575
+    },
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 9.88,
+     "promised": "2026-04-11",
+     "late": 13,
+     "on_time": false,
+     "cost": 1200,
+     "defect": 0.05,
+     "add_queue": 7.884615384615385
+    },
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 10.47,
+     "promised": "2026-04-11",
+     "late": 13,
+     "on_time": false,
+     "cost": 1300,
+     "defect": 0.03,
+     "add_queue": 5.970588235294118
+    },
+    {
+     "workshop": "W3",
+     "name": "BudgetWorks",
+     "finish": 12.54,
+     "promised": "2026-04-14",
+     "late": 16,
+     "on_time": false,
+     "cost": 800,
+     "defect": 0.09,
+     "add_queue": 4.5434782608695645
+    }
+   ],
+   "on_time": [],
+   "ineligible": {
+    "W4": "cannot make TOPS (makes ACCESSORIES)",
+    "W7": "status SUSPENDED",
+    "W8": "batch 1000 over its 300-piece limit"
+   },
+   "reference": {
+    "workshop": "W5",
+    "name": "GiantWeave",
+    "finish": 9.57,
+    "promised": "2026-04-11",
+    "late": 13,
+    "on_time": false,
+    "cost": 1100,
+    "defect": 0.06,
+    "add_queue": 2.575
+   }
+  },
+  "R29": {
+   "session_excluded": [
+    "W1"
+   ],
+   "matching_orders": [
+    "ORD-120 TrendCart Vest 1500 due 2026-03-17",
+    "ORD-020 TrendCart Vest 1200 due 2026-03-31",
+    "ORD-109 Harbor Knits Vest 500 due 2026-04-13",
+    "ORD-015 UrbanThread Vest 300 due 2026-04-16",
+    "ORD-024 Loom & Leaf Vest 300 due 2026-04-15",
+    "ORD-045 Cotton Club Vest 150 due 2026-04-09"
+   ]
+  },
+  "R30": {
+   "session_excluded": [
+    "W1"
+   ],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-099 Northwind Apparel Polo shirt TOPS 1500 pcs due 2026-04-05 stage WASHING",
+   "candidates": [
+    {
+     "workshop": "W5",
+     "name": "GiantWeave",
+     "finish": 10.86,
+     "promised": "2026-04-12",
+     "late": 7,
+     "on_time": false,
+     "cost": 1650,
+     "defect": 0.06,
+     "add_queue": 3.8625
+    },
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 13.46,
+     "promised": "2026-04-14",
+     "late": 9,
+     "on_time": false,
+     "cost": 1950,
+     "defect": 0.03,
+     "add_queue": 8.955882352941178
+    },
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 13.83,
+     "promised": "2026-04-15",
+     "late": 10,
+     "on_time": false,
+     "cost": 1800,
+     "defect": 0.05,
+     "add_queue": 11.826923076923077
+    },
+    {
+     "workshop": "W3",
+     "name": "BudgetWorks",
+     "finish": 14.82,
+     "promised": "2026-04-16",
+     "late": 11,
+     "on_time": false,
+     "cost": 1200,
+     "defect": 0.09,
+     "add_queue": 6.815217391304348
+    }
+   ],
+   "on_time": [],
+   "ineligible": {
+    "W4": "cannot make TOPS (makes ACCESSORIES)",
+    "W7": "status SUSPENDED",
+    "W8": "batch 1500 over its 300-piece limit"
+   },
+   "reference": {
+    "workshop": "W5",
+    "name": "GiantWeave",
+    "finish": 10.86,
+    "promised": "2026-04-12",
+    "late": 7,
+    "on_time": false,
+    "cost": 1650,
+    "defect": 0.06,
+    "add_queue": 3.8625
+   }
+  }
+ },
+ "in_order": {
+  "R01": {
+   "session_excluded": [],
+   "matching_orders": [
+    "ORD-108 Harbor Knits Scarf 2000 due 2026-04-03",
+    "ORD-061 Harbor Knits Scarf 800 due 2026-04-05"
+   ]
+  },
+  "R02": {
+   "session_excluded": []
+  },
+  "R03": {
+   "session_excluded": [],
+   "matching_orders": [
+    "ORD-120 TrendCart Vest 1500 due 2026-03-17",
+    "ORD-020 TrendCart Vest 1200 due 2026-03-31",
+    "ORD-096 TrendCart Beanie 1000 due 2026-04-17",
+    "ORD-017 TrendCart Cardigan 800 due 2026-04-10",
+    "ORD-082 TrendCart Beanie 600 due 2026-05-01",
+    "ORD-005 TrendCart Scarf 500 due 2026-04-20"
+   ]
+  },
+  "R04": {
+   "session_excluded": [],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-041 Harbor Knits Beanie ACCESSORIES 600 pcs due 2026-04-21 stage WASHING",
+   "candidates": [
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 6.73,
+     "promised": "2026-04-08",
+     "late": 0,
+     "on_time": true,
+     "cost": 720,
+     "defect": 0.05,
+     "add_queue": 4.73076923076923
+    },
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 8.08,
+     "promised": "2026-04-09",
+     "late": 0,
+     "on_time": true,
+     "cost": 780,
+     "defect": 0.03,
+     "add_queue": 3.5823529411764703
+    },
+    {
+     "workshop": "W4",
+     "name": "Little Loom",
+     "finish": 10.16,
+     "promised": "2026-04-11",
+     "late": 0,
+     "on_time": true,
+     "cost": 960,
+     "defect": 0.02,
+     "add_queue": 8.657142857142857
+    }
+   ],
+   "on_time": [
+    "W6",
+    "W2",
+    "W4"
+   ],
+   "ineligible": {
+    "W1": "cannot make ACCESSORIES (makes TOPS)",
+    "W3": "cannot make ACCESSORIES (makes TOPS)",
+    "W5": "cannot make ACCESSORIES (makes TOPS)",
+    "W7": "status SUSPENDED",
+    "W8": "cannot make ACCESSORIES (makes TOPS)"
+   },
+   "reference": {
+    "workshop": "W6",
+    "name": "Nimble Needle",
+    "finish": 6.73,
+    "promised": "2026-04-08",
+    "late": 0,
+    "on_time": true,
+    "cost": 720,
+    "defect": 0.05,
+    "add_queue": 4.73076923076923
+   },
+   "committed": "W6"
+  },
+  "R05": {
+   "session_excluded": [],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null
+  },
+  "R06": {
+   "session_excluded": [],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-096 TrendCart Beanie ACCESSORIES 1000 pcs due 2026-04-17 stage KNITTING",
+   "candidates": [
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 10.47,
+     "promised": "2026-04-11",
+     "late": 0,
+     "on_time": true,
+     "cost": 1300,
+     "defect": 0.03,
+     "add_queue": 5.970588235294118
+    },
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 14.62,
+     "promised": "2026-04-16",
+     "late": 0,
+     "on_time": true,
+     "cost": 1200,
+     "defect": 0.05,
+     "add_queue": 7.884615384615385
+    },
+    {
+     "workshop": "W4",
+     "name": "Little Loom",
+     "finish": 15.93,
+     "promised": "2026-04-17",
+     "late": 0,
+     "on_time": true,
+     "cost": 1600,
+     "defect": 0.02,
+     "add_queue": 14.428571428571429
+    }
+   ],
+   "on_time": [
+    "W2",
+    "W6",
+    "W4"
+   ],
+   "ineligible": {
+    "W1": "cannot make ACCESSORIES (makes TOPS)",
+    "W3": "cannot make ACCESSORIES (makes TOPS)",
+    "W5": "cannot make ACCESSORIES (makes TOPS)",
+    "W7": "status SUSPENDED",
+    "W8": "cannot make ACCESSORIES (makes TOPS)"
+   },
+   "reference": {
+    "workshop": "W2",
+    "name": "SteadyHands",
+    "finish": 10.47,
+    "promised": "2026-04-11",
+    "late": 0,
+    "on_time": true,
+    "cost": 1300,
+    "defect": 0.03,
+    "add_queue": 5.970588235294118
+   },
+   "committed": "W2"
+  },
+  "R07": {
+   "session_excluded": [],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-063 Loom & Leaf Cardigan TOPS 100 pcs due 2026-04-29 stage KNITTING",
+   "candidates": [
+    {
+     "workshop": "W8",
+     "name": "FreshStart",
+     "finish": 3.02,
+     "promised": "2026-04-04",
+     "late": 0,
+     "on_time": true,
+     "cost": 100,
+     "defect": 0.04,
+     "add_queue": 1.02
+    },
+    {
+     "workshop": "W1",
+     "name": "QuickStitch",
+     "finish": 5.35,
+     "promised": "2026-04-06",
+     "late": 0,
+     "on_time": true,
+     "cost": 150,
+     "defect": 0.12,
+     "add_queue": 0.35333333333333333
+    },
+    {
+     "workshop": "W5",
+     "name": "GiantWeave",
+     "finish": 7.26,
+     "promised": "2026-04-08",
+     "late": 0,
+     "on_time": true,
+     "cost": 110,
+     "defect": 0.06,
+     "add_queue": 0.2575
+    },
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 7.52,
+     "promised": "2026-04-09",
+     "late": 0,
+     "on_time": true,
+     "cost": 120,
+     "defect": 0.05,
+     "add_queue": 0.7884615384615385
+    },
+    {
+     "workshop": "W3",
+     "name": "BudgetWorks",
+     "finish": 8.45,
+     "promised": "2026-04-09",
+     "late": 0,
+     "on_time": true,
+     "cost": 80,
+     "defect": 0.09,
+     "add_queue": 0.4543478260869565
+    },
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 11.07,
+     "promised": "2026-04-12",
+     "late": 0,
+     "on_time": true,
+     "cost": 130,
+     "defect": 0.03,
+     "add_queue": 0.5970588235294118
+    }
+   ],
+   "on_time": [
+    "W8",
+    "W1",
+    "W5",
+    "W6",
+    "W3",
+    "W2"
+   ],
+   "ineligible": {
+    "W4": "cannot make TOPS (makes ACCESSORIES)",
+    "W7": "status SUSPENDED"
+   },
+   "reference": {
+    "workshop": "W8",
+    "name": "FreshStart",
+    "finish": 3.02,
+    "promised": "2026-04-04",
+    "late": 0,
+    "on_time": true,
+    "cost": 100,
+    "defect": 0.04,
+    "add_queue": 1.02
+   },
+   "committed": "W8"
+  },
+  "R08": {
+   "session_excluded": [],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-073 Loom & Leaf Hoodie TOPS 400 pcs due 2026-04-20 stage ASSEMBLY",
+   "candidates": [
+    {
+     "workshop": "W1",
+     "name": "QuickStitch",
+     "finish": 6.41,
+     "promised": "2026-04-07",
+     "late": 0,
+     "on_time": true,
+     "cost": 600,
+     "defect": 0.12,
+     "add_queue": 1.4133333333333333
+    },
+    {
+     "workshop": "W5",
+     "name": "GiantWeave",
+     "finish": 8.03,
+     "promised": "2026-04-09",
+     "late": 0,
+     "on_time": true,
+     "cost": 440,
+     "defect": 0.06,
+     "add_queue": 1.03
+    },
+    {
+     "workshop": "W3",
+     "name": "BudgetWorks",
+     "finish": 9.82,
+     "promised": "2026-04-11",
+     "late": 0,
+     "on_time": true,
+     "cost": 320,
+     "defect": 0.09,
+     "add_queue": 1.817391304347826
+    },
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 9.88,
+     "promised": "2026-04-11",
+     "late": 0,
+     "on_time": true,
+     "cost": 480,
+     "defect": 0.05,
+     "add_queue": 3.153846153846154
+    },
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 12.86,
+     "promised": "2026-04-14",
+     "late": 0,
+     "on_time": true,
+     "cost": 520,
+     "defect": 0.03,
+     "add_queue": 2.388235294117647
+    }
+   ],
+   "on_time": [
+    "W1",
+    "W5",
+    "W3",
+    "W6",
+    "W2"
+   ],
+   "ineligible": {
+    "W4": "cannot make TOPS (makes ACCESSORIES)",
+    "W7": "status SUSPENDED",
+    "W8": "batch 400 over its 300-piece limit"
+   },
+   "forced": {
+    "workshop": "W8",
+    "eligible": false,
+    "reason": "batch 400 over its 300-piece limit"
+   },
+   "reference": {
+    "workshop": "W1",
+    "name": "QuickStitch",
+    "finish": 6.41,
+    "promised": "2026-04-07",
+    "late": 0,
+    "on_time": true,
+    "cost": 600,
+    "defect": 0.12,
+    "add_queue": 1.4133333333333333
+   }
+  },
+  "R09": {
+   "session_excluded": [],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-045 Cotton Club Vest TOPS 150 pcs due 2026-04-09 stage WASHING",
+   "candidates": [
+    {
+     "workshop": "W8",
+     "name": "FreshStart",
+     "finish": 4.55,
+     "promised": "2026-04-06",
+     "late": 0,
+     "on_time": true,
+     "cost": 150,
+     "defect": 0.04,
+     "add_queue": 1.53
+    },
+    {
+     "workshop": "W1",
+     "name": "QuickStitch",
+     "finish": 5.53,
+     "promised": "2026-04-07",
+     "late": 0,
+     "on_time": true,
+     "cost": 225,
+     "defect": 0.12,
+     "add_queue": 0.53
+    },
+    {
+     "workshop": "W5",
+     "name": "GiantWeave",
+     "finish": 7.39,
+     "promised": "2026-04-08",
+     "late": 0,
+     "on_time": true,
+     "cost": 165,
+     "defect": 0.06,
+     "add_queue": 0.38625
+    },
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 7.91,
+     "promised": "2026-04-09",
+     "late": 0,
+     "on_time": true,
+     "cost": 180,
+     "defect": 0.05,
+     "add_queue": 1.1826923076923075
+    },
+    {
+     "workshop": "W3",
+     "name": "BudgetWorks",
+     "finish": 8.68,
+     "promised": "2026-04-10",
+     "late": 1,
+     "on_time": false,
+     "cost": 120,
+     "defect": 0.09,
+     "add_queue": 0.6815217391304348
+    },
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 11.37,
+     "promised": "2026-04-12",
+     "late": 3,
+     "on_time": false,
+     "cost": 195,
+     "defect": 0.03,
+     "add_queue": 0.8955882352941176
+    }
+   ],
+   "on_time": [
+    "W8",
+    "W1",
+    "W5",
+    "W6"
+   ],
+   "ineligible": {
+    "W4": "cannot make TOPS (makes ACCESSORIES)",
+    "W7": "status SUSPENDED"
+   },
+   "reference": {
+    "workshop": "W8",
+    "name": "FreshStart",
+    "finish": 4.55,
+    "promised": "2026-04-06",
+    "late": 0,
+    "on_time": true,
+    "cost": 150,
+    "defect": 0.04,
+    "add_queue": 1.53
+   },
+   "committed": "W8"
+  },
+  "R10": {
+   "session_excluded": [],
+   "matching_orders": [
+    "ORD-040 Loom & Leaf Hoodie 1200 due 2026-04-21",
+    "ORD-008 Loom & Leaf Polo shirt 600 due 2026-04-09",
+    "ORD-073 Loom & Leaf Hoodie 400 due 2026-04-20",
+    "ORD-024 Loom & Leaf Vest 300 due 2026-04-15",
+    "ORD-035 Loom & Leaf Beanie 300 due 2026-04-29",
+    "ORD-063 Loom & Leaf Cardigan 100 due 2026-04-29"
+   ]
+  },
+  "R11": {
+   "session_excluded": [],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-008 Loom & Leaf Polo shirt TOPS 600 pcs due 2026-04-09 stage KNITTING",
+   "candidates": [
+    {
+     "workshop": "W1",
+     "name": "QuickStitch",
+     "finish": 7.12,
+     "promised": "2026-04-08",
+     "late": 0,
+     "on_time": true,
+     "cost": 900,
+     "defect": 0.12,
+     "add_queue": 2.12
+    },
+    {
+     "workshop": "W5",
+     "name": "GiantWeave",
+     "finish": 8.54,
+     "promised": "2026-04-10",
+     "late": 1,
+     "on_time": false,
+     "cost": 660,
+     "defect": 0.06,
+     "add_queue": 1.545
+    },
+    {
+     "workshop": "W3",
+     "name": "BudgetWorks",
+     "finish": 10.73,
+     "promised": "2026-04-12",
+     "late": 3,
+     "on_time": false,
+     "cost": 480,
+     "defect": 0.09,
+     "add_queue": 2.726086956521739
+    },
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 11.46,
+     "promised": "2026-04-12",
+     "late": 3,
+     "on_time": false,
+     "cost": 720,
+     "defect": 0.05,
+     "add_queue": 4.73076923076923
+    },
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 14.05,
+     "promised": "2026-04-15",
+     "late": 6,
+     "on_time": false,
+     "cost": 780,
+     "defect": 0.03,
+     "add_queue": 3.5823529411764703
+    }
+   ],
+   "on_time": [
+    "W1"
+   ],
+   "ineligible": {
+    "W4": "cannot make TOPS (makes ACCESSORIES)",
+    "W7": "status SUSPENDED",
+    "W8": "batch 600 over its 300-piece limit"
+   },
+   "forced": {
+    "workshop": "W7",
+    "eligible": false,
+    "reason": "status SUSPENDED"
+   },
+   "reference": {
+    "workshop": "W1",
+    "name": "QuickStitch",
+    "finish": 7.12,
+    "promised": "2026-04-08",
+    "late": 0,
+    "on_time": true,
+    "cost": 900,
+    "defect": 0.12,
+    "add_queue": 2.12
+   }
+  },
+  "R12": {
+   "session_excluded": [],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-053 UrbanThread Polo shirt TOPS 800 pcs due 2026-04-10 stage ASSEMBLY",
+   "candidates": [
+    {
+     "workshop": "W5",
+     "name": "GiantWeave",
+     "finish": 9.06,
+     "promised": "2026-04-10",
+     "late": 0,
+     "on_time": true,
+     "cost": 880,
+     "defect": 0.06,
+     "add_queue": 2.06
+    },
+    {
+     "workshop": "W3",
+     "name": "BudgetWorks",
+     "finish": 11.63,
+     "promised": "2026-04-13",
+     "late": 3,
+     "on_time": false,
+     "cost": 640,
+     "defect": 0.09,
+     "add_queue": 3.634782608695652
+    },
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 13.04,
+     "promised": "2026-04-14",
+     "late": 4,
+     "on_time": false,
+     "cost": 960,
+     "defect": 0.05,
+     "add_queue": 6.307692307692308
+    },
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 15.25,
+     "promised": "2026-04-16",
+     "late": 6,
+     "on_time": false,
+     "cost": 1040,
+     "defect": 0.03,
+     "add_queue": 4.776470588235294
+    }
+   ],
+   "on_time": [
+    "W5"
+   ],
+   "ineligible": {
+    "W4": "cannot make TOPS (makes ACCESSORIES)",
+    "W7": "status SUSPENDED",
+    "W8": "batch 800 over its 300-piece limit"
+   },
+   "reference": {
+    "workshop": "W5",
+    "name": "GiantWeave",
+    "finish": 9.06,
+    "promised": "2026-04-10",
+    "late": 0,
+    "on_time": true,
+    "cost": 880,
+    "defect": 0.06,
+    "add_queue": 2.06
+   },
+   "committed": "W5"
+  },
+  "R13": {
+   "session_excluded": [
+    "W1"
+   ],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null
+  },
+  "R14": {
+   "session_excluded": [
+    "W1"
+   ],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-103 Bright Basics Scarf ACCESSORIES 2000 pcs due 2026-04-04 stage ASSEMBLY",
+   "candidates": [
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 22.41,
+     "promised": "2026-04-23",
+     "late": 19,
+     "on_time": false,
+     "cost": 2600,
+     "defect": 0.03,
+     "add_queue": 11.941176470588236
+    },
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 22.5,
+     "promised": "2026-04-23",
+     "late": 19,
+     "on_time": false,
+     "cost": 2400,
+     "defect": 0.05,
+     "add_queue": 15.76923076923077
+    },
+    {
+     "workshop": "W4",
+     "name": "Little Loom",
+     "finish": 30.36,
+     "promised": "2026-05-01",
+     "late": 27,
+     "on_time": false,
+     "cost": 3200,
+     "defect": 0.02,
+     "add_queue": 28.857142857142858
+    }
+   ],
+   "on_time": [],
+   "ineligible": {
+    "W1": "cannot make ACCESSORIES (makes TOPS)",
+    "W3": "cannot make ACCESSORIES (makes TOPS)",
+    "W5": "cannot make ACCESSORIES (makes TOPS)",
+    "W7": "status SUSPENDED",
+    "W8": "cannot make ACCESSORIES (makes TOPS)"
+   },
+   "forced": {
+    "workshop": "W1",
+    "eligible": false,
+    "reason": "cannot make ACCESSORIES (makes TOPS)"
+   },
+   "reference": {
+    "workshop": "W2",
+    "name": "SteadyHands",
+    "finish": 22.41,
+    "promised": "2026-04-23",
+    "late": 19,
+    "on_time": false,
+    "cost": 2600,
+    "defect": 0.03,
+    "add_queue": 11.941176470588236
+   }
+  },
+  "R15": {
+   "session_excluded": [
+    "W1"
+   ],
+   "matching_orders": [
+    "ORD-040 Loom & Leaf Hoodie 1200 due 2026-04-21",
+    "ORD-008 Loom & Leaf Polo shirt 600 due 2026-04-09",
+    "ORD-073 Loom & Leaf Hoodie 400 due 2026-04-20",
+    "ORD-024 Loom & Leaf Vest 300 due 2026-04-15",
+    "ORD-035 Loom & Leaf Beanie 300 due 2026-04-29",
+    "ORD-063 Loom & Leaf Cardigan 100 due 2026-04-29"
+   ]
+  },
+  "R16": {
+   "session_excluded": [
+    "W1"
+   ],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-024 Loom & Leaf Vest TOPS 300 pcs due 2026-04-15 stage ASSEMBLY",
+   "candidates": [
+    {
+     "workshop": "W8",
+     "name": "FreshStart",
+     "finish": 7.61,
+     "promised": "2026-04-09",
+     "late": 0,
+     "on_time": true,
+     "cost": 300,
+     "defect": 0.04,
+     "add_queue": 3.06
+    },
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 9.1,
+     "promised": "2026-04-10",
+     "late": 0,
+     "on_time": true,
+     "cost": 360,
+     "defect": 0.05,
+     "add_queue": 2.365384615384615
+    },
+    {
+     "workshop": "W3",
+     "name": "BudgetWorks",
+     "finish": 9.36,
+     "promised": "2026-04-10",
+     "late": 0,
+     "on_time": true,
+     "cost": 240,
+     "defect": 0.09,
+     "add_queue": 1.3630434782608696
+    },
+    {
+     "workshop": "W5",
+     "name": "GiantWeave",
+     "finish": 9.83,
+     "promised": "2026-04-11",
+     "late": 0,
+     "on_time": true,
+     "cost": 330,
+     "defect": 0.06,
+     "add_queue": 0.7725
+    },
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 12.26,
+     "promised": "2026-04-13",
+     "late": 0,
+     "on_time": true,
+     "cost": 390,
+     "defect": 0.03,
+     "add_queue": 1.7911764705882351
+    }
+   ],
+   "on_time": [
+    "W8",
+    "W6",
+    "W3",
+    "W5",
+    "W2"
+   ],
+   "ineligible": {
+    "W4": "cannot make TOPS (makes ACCESSORIES)",
+    "W7": "status SUSPENDED"
+   },
+   "reference": {
+    "workshop": "W8",
+    "name": "FreshStart",
+    "finish": 7.61,
+    "promised": "2026-04-09",
+    "late": 0,
+    "on_time": true,
+    "cost": 300,
+    "defect": 0.04,
+    "add_queue": 3.06
+   },
+   "committed": "W8"
+  },
+  "R17": {
+   "session_excluded": [
+    "W1"
+   ],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-017 TrendCart Cardigan TOPS 800 pcs due 2026-04-10 stage KNITTING",
+   "candidates": [
+    {
+     "workshop": "W5",
+     "name": "GiantWeave",
+     "finish": 11.12,
+     "promised": "2026-04-12",
+     "late": 2,
+     "on_time": false,
+     "cost": 880,
+     "defect": 0.06,
+     "add_queue": 2.06
+    },
+    {
+     "workshop": "W3",
+     "name": "BudgetWorks",
+     "finish": 11.63,
+     "promised": "2026-04-13",
+     "late": 3,
+     "on_time": false,
+     "cost": 640,
+     "defect": 0.09,
+     "add_queue": 3.634782608695652
+    },
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 13.04,
+     "promised": "2026-04-14",
+     "late": 4,
+     "on_time": false,
+     "cost": 960,
+     "defect": 0.05,
+     "add_queue": 6.307692307692308
+    },
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 15.25,
+     "promised": "2026-04-16",
+     "late": 6,
+     "on_time": false,
+     "cost": 1040,
+     "defect": 0.03,
+     "add_queue": 4.776470588235294
+    }
+   ],
+   "on_time": [],
+   "ineligible": {
+    "W4": "cannot make TOPS (makes ACCESSORIES)",
+    "W7": "status SUSPENDED",
+    "W8": "batch 800 over its 300-piece limit"
+   },
+   "reference": {
+    "workshop": "W5",
+    "name": "GiantWeave",
+    "finish": 11.12,
+    "promised": "2026-04-12",
+    "late": 2,
+    "on_time": false,
+    "cost": 880,
+    "defect": 0.06,
+    "add_queue": 2.06
+   }
+  },
+  "R18": {
+   "session_excluded": [
+    "W1"
+   ],
+   "order_missing": true
+  },
+  "R19": {
+   "session_excluded": [
+    "W1"
+   ],
+   "matching_orders": [
+    "ORD-040 Loom & Leaf Hoodie 1200 due 2026-04-21",
+    "ORD-010 Cotton Club Cardigan 1000 due 2026-04-25",
+    "ORD-017 TrendCart Cardigan 800 due 2026-04-10",
+    "ORD-095 Bright Basics Hoodie 800 due 2026-04-26",
+    "ORD-008 Loom & Leaf Polo shirt 600 due 2026-04-09",
+    "ORD-082 TrendCart Beanie 600 due 2026-05-01",
+    "ORD-015 UrbanThread Vest 300 due 2026-04-16",
+    "ORD-024 Loom & Leaf Vest 300 due 2026-04-15",
+    "ORD-035 Loom & Leaf Beanie 300 due 2026-04-29",
+    "ORD-063 Loom & Leaf Cardigan 100 due 2026-04-29"
+   ]
+  },
+  "R20": {
+   "session_excluded": [
+    "W1"
+   ],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-103 Bright Basics Scarf ACCESSORIES 2000 pcs due 2026-04-04 stage ASSEMBLY",
+   "candidates": [
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 22.41,
+     "promised": "2026-04-23",
+     "late": 19,
+     "on_time": false,
+     "cost": 2600,
+     "defect": 0.03,
+     "add_queue": 11.941176470588236
+    },
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 22.5,
+     "promised": "2026-04-23",
+     "late": 19,
+     "on_time": false,
+     "cost": 2400,
+     "defect": 0.05,
+     "add_queue": 15.76923076923077
+    },
+    {
+     "workshop": "W4",
+     "name": "Little Loom",
+     "finish": 30.36,
+     "promised": "2026-05-01",
+     "late": 27,
+     "on_time": false,
+     "cost": 3200,
+     "defect": 0.02,
+     "add_queue": 28.857142857142858
+    }
+   ],
+   "on_time": [],
+   "ineligible": {
+    "W1": "cannot make ACCESSORIES (makes TOPS)",
+    "W3": "cannot make ACCESSORIES (makes TOPS)",
+    "W5": "cannot make ACCESSORIES (makes TOPS)",
+    "W7": "status SUSPENDED",
+    "W8": "cannot make ACCESSORIES (makes TOPS)"
+   },
+   "reference": {
+    "workshop": "W2",
+    "name": "SteadyHands",
+    "finish": 22.41,
+    "promised": "2026-04-23",
+    "late": 19,
+    "on_time": false,
+    "cost": 2600,
+    "defect": 0.03,
+    "add_queue": 11.941176470588236
+   }
+  },
+  "R21": {
+   "session_excluded": [
+    "W1"
+   ],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-081 Harbor Knits Crewneck sweater TOPS 1500 pcs due 2026-04-13 stage ASSEMBLY",
+   "candidates": [
+    {
+     "workshop": "W5",
+     "name": "GiantWeave",
+     "finish": 12.92,
+     "promised": "2026-04-14",
+     "late": 1,
+     "on_time": false,
+     "cost": 1650,
+     "defect": 0.06,
+     "add_queue": 3.8625
+    },
+    {
+     "workshop": "W3",
+     "name": "BudgetWorks",
+     "finish": 14.82,
+     "promised": "2026-04-16",
+     "late": 3,
+     "on_time": false,
+     "cost": 1200,
+     "defect": 0.09,
+     "add_queue": 6.815217391304348
+    },
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 18.56,
+     "promised": "2026-04-20",
+     "late": 7,
+     "on_time": false,
+     "cost": 1800,
+     "defect": 0.05,
+     "add_queue": 11.826923076923077
+    },
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 19.43,
+     "promised": "2026-04-20",
+     "late": 7,
+     "on_time": false,
+     "cost": 1950,
+     "defect": 0.03,
+     "add_queue": 8.955882352941178
+    }
+   ],
+   "on_time": [],
+   "ineligible": {
+    "W4": "cannot make TOPS (makes ACCESSORIES)",
+    "W7": "status SUSPENDED",
+    "W8": "batch 1500 over its 300-piece limit"
+   },
+   "reference": {
+    "workshop": "W5",
+    "name": "GiantWeave",
+    "finish": 12.92,
+    "promised": "2026-04-14",
+    "late": 1,
+    "on_time": false,
+    "cost": 1650,
+    "defect": 0.06,
+    "add_queue": 3.8625
+   }
+  },
+  "R22": {
+   "session_excluded": [
+    "W1"
+   ],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-040 Loom & Leaf Hoodie TOPS 1200 pcs due 2026-04-21 stage KNITTING",
+   "candidates": [
+    {
+     "workshop": "W5",
+     "name": "GiantWeave",
+     "finish": 12.15,
+     "promised": "2026-04-13",
+     "late": 0,
+     "on_time": true,
+     "cost": 1320,
+     "defect": 0.06,
+     "add_queue": 3.09
+    },
+    {
+     "workshop": "W3",
+     "name": "BudgetWorks",
+     "finish": 13.45,
+     "promised": "2026-04-14",
+     "late": 0,
+     "on_time": true,
+     "cost": 960,
+     "defect": 0.09,
+     "add_queue": 5.452173913043478
+    },
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 16.19,
+     "promised": "2026-04-17",
+     "late": 0,
+     "on_time": true,
+     "cost": 1440,
+     "defect": 0.05,
+     "add_queue": 9.46153846153846
+    },
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 17.64,
+     "promised": "2026-04-19",
+     "late": 0,
+     "on_time": true,
+     "cost": 1560,
+     "defect": 0.03,
+     "add_queue": 7.164705882352941
+    }
+   ],
+   "on_time": [
+    "W5",
+    "W3",
+    "W6",
+    "W2"
+   ],
+   "ineligible": {
+    "W4": "cannot make TOPS (makes ACCESSORIES)",
+    "W7": "status SUSPENDED",
+    "W8": "batch 1200 over its 300-piece limit"
+   },
+   "reference": {
+    "workshop": "W5",
+    "name": "GiantWeave",
+    "finish": 12.15,
+    "promised": "2026-04-13",
+    "late": 0,
+    "on_time": true,
+    "cost": 1320,
+    "defect": 0.06,
+    "add_queue": 3.09
+   },
+   "committed": "W5"
+  },
+  "R23": {
+   "session_excluded": [
+    "W1"
+   ],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-005 TrendCart Scarf ACCESSORIES 500 pcs due 2026-04-20 stage KNITTING",
+   "candidates": [
+    {
+     "workshop": "W4",
+     "name": "Little Loom",
+     "finish": 8.71,
+     "promised": "2026-04-10",
+     "late": 0,
+     "on_time": true,
+     "cost": 800,
+     "defect": 0.02,
+     "add_queue": 7.214285714285714
+    },
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 10.67,
+     "promised": "2026-04-12",
+     "late": 0,
+     "on_time": true,
+     "cost": 600,
+     "defect": 0.05,
+     "add_queue": 3.9423076923076925
+    },
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 13.46,
+     "promised": "2026-04-14",
+     "late": 0,
+     "on_time": true,
+     "cost": 650,
+     "defect": 0.03,
+     "add_queue": 2.985294117647059
+    }
+   ],
+   "on_time": [
+    "W4",
+    "W6",
+    "W2"
+   ],
+   "ineligible": {
+    "W1": "cannot make ACCESSORIES (makes TOPS)",
+    "W3": "cannot make ACCESSORIES (makes TOPS)",
+    "W5": "cannot make ACCESSORIES (makes TOPS)",
+    "W7": "status SUSPENDED",
+    "W8": "cannot make ACCESSORIES (makes TOPS)"
+   },
+   "reference": {
+    "workshop": "W4",
+    "name": "Little Loom",
+    "finish": 8.71,
+    "promised": "2026-04-10",
+    "late": 0,
+    "on_time": true,
+    "cost": 800,
+    "defect": 0.02,
+    "add_queue": 7.214285714285714
+   },
+   "committed": "W4"
+  },
+  "R24": {
+   "session_excluded": [
+    "W1"
+   ],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-015 UrbanThread Vest TOPS 300 pcs due 2026-04-16 stage ASSEMBLY",
+   "candidates": [
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 9.1,
+     "promised": "2026-04-10",
+     "late": 0,
+     "on_time": true,
+     "cost": 360,
+     "defect": 0.05,
+     "add_queue": 2.365384615384615
+    },
+    {
+     "workshop": "W3",
+     "name": "BudgetWorks",
+     "finish": 9.36,
+     "promised": "2026-04-10",
+     "late": 0,
+     "on_time": true,
+     "cost": 240,
+     "defect": 0.09,
+     "add_queue": 1.3630434782608696
+    },
+    {
+     "workshop": "W8",
+     "name": "FreshStart",
+     "finish": 10.67,
+     "promised": "2026-04-12",
+     "late": 0,
+     "on_time": true,
+     "cost": 300,
+     "defect": 0.04,
+     "add_queue": 3.06
+    },
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 12.26,
+     "promised": "2026-04-13",
+     "late": 0,
+     "on_time": true,
+     "cost": 390,
+     "defect": 0.03,
+     "add_queue": 1.7911764705882351
+    },
+    {
+     "workshop": "W5",
+     "name": "GiantWeave",
+     "finish": 12.92,
+     "promised": "2026-04-14",
+     "late": 0,
+     "on_time": true,
+     "cost": 330,
+     "defect": 0.06,
+     "add_queue": 0.7725
+    }
+   ],
+   "on_time": [
+    "W6",
+    "W3",
+    "W8",
+    "W2",
+    "W5"
+   ],
+   "ineligible": {
+    "W4": "cannot make TOPS (makes ACCESSORIES)",
+    "W7": "status SUSPENDED"
+   },
+   "forced": {
+    "workshop": "W4",
+    "eligible": false,
+    "reason": "cannot make TOPS (makes ACCESSORIES)"
+   },
+   "reference": {
+    "workshop": "W6",
+    "name": "Nimble Needle",
+    "finish": 9.1,
+    "promised": "2026-04-10",
+    "late": 0,
+    "on_time": true,
+    "cost": 360,
+    "defect": 0.05,
+    "add_queue": 2.365384615384615
+   }
+  },
+  "R25": {
+   "session_excluded": [
+    "W1"
+   ],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-109 Harbor Knits Vest TOPS 500 pcs due 2026-04-13 stage WASHING",
+   "candidates": [
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 10.67,
+     "promised": "2026-04-12",
+     "late": 0,
+     "on_time": true,
+     "cost": 600,
+     "defect": 0.05,
+     "add_queue": 3.9423076923076925
+    },
+    {
+     "workshop": "W5",
+     "name": "GiantWeave",
+     "finish": 13.44,
+     "promised": "2026-04-14",
+     "late": 1,
+     "on_time": false,
+     "cost": 550,
+     "defect": 0.06,
+     "add_queue": 1.2875
+    },
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 13.46,
+     "promised": "2026-04-14",
+     "late": 1,
+     "on_time": false,
+     "cost": 650,
+     "defect": 0.03,
+     "add_queue": 2.985294117647059
+    }
+   ],
+   "on_time": [
+    "W6"
+   ],
+   "ineligible": {
+    "W4": "cannot make TOPS (makes ACCESSORIES)",
+    "W7": "status SUSPENDED",
+    "W8": "batch 500 over its 300-piece limit"
+   },
+   "reference": {
+    "workshop": "W6",
+    "name": "Nimble Needle",
+    "finish": 10.67,
+    "promised": "2026-04-12",
+    "late": 0,
+    "on_time": true,
+    "cost": 600,
+    "defect": 0.05,
+    "add_queue": 3.9423076923076925
+   },
+   "committed": "W6"
+  },
+  "R26": {
+   "session_excluded": [
+    "W1"
+   ],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-010 Cotton Club Cardigan TOPS 1000 pcs due 2026-04-25 stage KNITTING",
+   "candidates": [
+    {
+     "workshop": "W3",
+     "name": "BudgetWorks",
+     "finish": 12.54,
+     "promised": "2026-04-14",
+     "late": 0,
+     "on_time": true,
+     "cost": 800,
+     "defect": 0.09,
+     "add_queue": 4.5434782608695645
+    },
+    {
+     "workshop": "W5",
+     "name": "GiantWeave",
+     "finish": 14.72,
+     "promised": "2026-04-16",
+     "late": 0,
+     "on_time": true,
+     "cost": 1100,
+     "defect": 0.06,
+     "add_queue": 2.575
+    },
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 16.44,
+     "promised": "2026-04-17",
+     "late": 0,
+     "on_time": true,
+     "cost": 1300,
+     "defect": 0.03,
+     "add_queue": 5.970588235294118
+    },
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 18.56,
+     "promised": "2026-04-20",
+     "late": 0,
+     "on_time": true,
+     "cost": 1200,
+     "defect": 0.05,
+     "add_queue": 7.884615384615385
+    }
+   ],
+   "on_time": [
+    "W3",
+    "W5",
+    "W2",
+    "W6"
+   ],
+   "ineligible": {
+    "W4": "cannot make TOPS (makes ACCESSORIES)",
+    "W7": "status SUSPENDED",
+    "W8": "batch 1000 over its 300-piece limit"
+   },
+   "reference": {
+    "workshop": "W3",
+    "name": "BudgetWorks",
+    "finish": 12.54,
+    "promised": "2026-04-14",
+    "late": 0,
+    "on_time": true,
+    "cost": 800,
+    "defect": 0.09,
+    "add_queue": 4.5434782608695645
+   },
+   "committed": "W3"
+  },
+  "R27": {
+   "session_excluded": [
+    "W1"
+   ],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-095 Bright Basics Hoodie TOPS 800 pcs due 2026-04-26 stage KNITTING",
+   "candidates": [
+    {
+     "workshop": "W5",
+     "name": "GiantWeave",
+     "finish": 14.21,
+     "promised": "2026-04-15",
+     "late": 0,
+     "on_time": true,
+     "cost": 880,
+     "defect": 0.06,
+     "add_queue": 2.06
+    },
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 15.25,
+     "promised": "2026-04-16",
+     "late": 0,
+     "on_time": true,
+     "cost": 1040,
+     "defect": 0.03,
+     "add_queue": 4.776470588235294
+    },
+    {
+     "workshop": "W3",
+     "name": "BudgetWorks",
+     "finish": 16.18,
+     "promised": "2026-04-17",
+     "late": 0,
+     "on_time": true,
+     "cost": 640,
+     "defect": 0.09,
+     "add_queue": 3.634782608695652
+    },
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 16.98,
+     "promised": "2026-04-18",
+     "late": 0,
+     "on_time": true,
+     "cost": 960,
+     "defect": 0.05,
+     "add_queue": 6.307692307692308
+    }
+   ],
+   "on_time": [
+    "W5",
+    "W2",
+    "W3",
+    "W6"
+   ],
+   "ineligible": {
+    "W4": "cannot make TOPS (makes ACCESSORIES)",
+    "W7": "status SUSPENDED",
+    "W8": "batch 800 over its 300-piece limit"
+   },
+   "reference": {
+    "workshop": "W2",
+    "name": "SteadyHands",
+    "finish": 15.25,
+    "promised": "2026-04-16",
+    "late": 0,
+    "on_time": true,
+    "cost": 1040,
+    "defect": 0.03,
+    "add_queue": 4.776470588235294
+   },
+   "committed": "W2"
+  },
+  "R28": {
+   "session_excluded": [
+    "W1"
+   ],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-002 Cotton Club Crewneck sweater TOPS 1000 pcs due 2026-03-29 stage WASHING",
+   "candidates": [
+    {
+     "workshop": "W5",
+     "name": "GiantWeave",
+     "finish": 14.72,
+     "promised": "2026-04-16",
+     "late": 18,
+     "on_time": false,
+     "cost": 1100,
+     "defect": 0.06,
+     "add_queue": 2.575
+    },
+    {
+     "workshop": "W3",
+     "name": "BudgetWorks",
+     "finish": 17.09,
+     "promised": "2026-04-18",
+     "late": 20,
+     "on_time": false,
+     "cost": 800,
+     "defect": 0.09,
+     "add_queue": 4.5434782608695645
+    },
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 18.56,
+     "promised": "2026-04-20",
+     "late": 22,
+     "on_time": false,
+     "cost": 1200,
+     "defect": 0.05,
+     "add_queue": 7.884615384615385
+    },
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 21.22,
+     "promised": "2026-04-22",
+     "late": 24,
+     "on_time": false,
+     "cost": 1300,
+     "defect": 0.03,
+     "add_queue": 5.970588235294118
+    }
+   ],
+   "on_time": [],
+   "ineligible": {
+    "W4": "cannot make TOPS (makes ACCESSORIES)",
+    "W7": "status SUSPENDED",
+    "W8": "batch 1000 over its 300-piece limit"
+   },
+   "reference": {
+    "workshop": "W5",
+    "name": "GiantWeave",
+    "finish": 14.72,
+    "promised": "2026-04-16",
+    "late": 18,
+    "on_time": false,
+    "cost": 1100,
+    "defect": 0.06,
+    "add_queue": 2.575
+   }
+  },
+  "R29": {
+   "session_excluded": [
+    "W1"
+   ],
+   "matching_orders": [
+    "ORD-120 TrendCart Vest 1500 due 2026-03-17",
+    "ORD-020 TrendCart Vest 1200 due 2026-03-31",
+    "ORD-109 Harbor Knits Vest 500 due 2026-04-13",
+    "ORD-015 UrbanThread Vest 300 due 2026-04-16",
+    "ORD-024 Loom & Leaf Vest 300 due 2026-04-15",
+    "ORD-045 Cotton Club Vest 150 due 2026-04-09"
+   ]
+  },
+  "R30": {
+   "session_excluded": [
+    "W1"
+   ],
+   "order_status": "IN_PROGRESS",
+   "already_committed_by": null,
+   "order": "ORD-099 Northwind Apparel Polo shirt TOPS 1500 pcs due 2026-04-05 stage WASHING",
+   "candidates": [
+    {
+     "workshop": "W5",
+     "name": "GiantWeave",
+     "finish": 16.01,
+     "promised": "2026-04-17",
+     "late": 12,
+     "on_time": false,
+     "cost": 1650,
+     "defect": 0.06,
+     "add_queue": 3.8625
+    },
+    {
+     "workshop": "W3",
+     "name": "BudgetWorks",
+     "finish": 19.36,
+     "promised": "2026-04-20",
+     "late": 15,
+     "on_time": false,
+     "cost": 1200,
+     "defect": 0.09,
+     "add_queue": 6.815217391304348
+    },
+    {
+     "workshop": "W6",
+     "name": "Nimble Needle",
+     "finish": 22.5,
+     "promised": "2026-04-23",
+     "late": 18,
+     "on_time": false,
+     "cost": 1800,
+     "defect": 0.05,
+     "add_queue": 11.826923076923077
+    },
+    {
+     "workshop": "W2",
+     "name": "SteadyHands",
+     "finish": 24.2,
+     "promised": "2026-04-25",
+     "late": 20,
+     "on_time": false,
+     "cost": 1950,
+     "defect": 0.03,
+     "add_queue": 8.955882352941178
+    }
+   ],
+   "on_time": [],
+   "ineligible": {
+    "W4": "cannot make TOPS (makes ACCESSORIES)",
+    "W7": "status SUSPENDED",
+    "W8": "batch 1500 over its 300-piece limit"
+   },
+   "reference": {
+    "workshop": "W5",
+    "name": "GiantWeave",
+    "finish": 16.01,
+    "promised": "2026-04-17",
+    "late": 12,
+    "on_time": false,
+    "cost": 1650,
+    "defect": 0.06,
+    "add_queue": 3.8625
+   }
+  }
+ }
+}

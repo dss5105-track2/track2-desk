@@ -1,0 +1,406 @@
+{
+ "people": [
+  "吴若晗",
+  "许佩瑶",
+  "李岩",
+  "屈妍玥",
+  "吴杰",
+  "张锦若"
+ ],
+ "new_nine": [
+  "R04",
+  "R06",
+  "R07",
+  "R16",
+  "R17",
+  "R22",
+  "R23",
+  "R26",
+  "R27"
+ ],
+ "fleiss_kappa_official_unchanged_21": 0.613,
+ "fleiss_kappa_official_all_30": 0.7,
+ "new_nine_unanimous": true,
+ "new_nine_raters": [
+  6
+ ],
+ "below_5_of_6": [
+  "R08",
+  "R13",
+  "R14",
+  "R24",
+  "R28"
+ ],
+ "unanimous": [
+  "R01",
+  "R02",
+  "R03",
+  "R04",
+  "R06",
+  "R07",
+  "R11",
+  "R12",
+  "R15",
+  "R16",
+  "R17",
+  "R18",
+  "R19",
+  "R22",
+  "R23",
+  "R26",
+  "R27",
+  "R29"
+ ],
+ "majority_equals_proposed": [
+  "R01",
+  "R02",
+  "R03",
+  "R04",
+  "R05",
+  "R06",
+  "R07",
+  "R08",
+  "R09",
+  "R10",
+  "R11",
+  "R12",
+  "R13",
+  "R15",
+  "R16",
+  "R17",
+  "R18",
+  "R19",
+  "R20",
+  "R21",
+  "R22",
+  "R23",
+  "R25",
+  "R26",
+  "R27",
+  "R28",
+  "R29",
+  "R30"
+ ],
+ "majority_differs_from_proposed": [
+  "R14",
+  "R24"
+ ],
+ "per_request": {
+  "R01": {
+   "raters": 6,
+   "votes": {
+    "clarify": 6
+   },
+   "majority": "clarify",
+   "majority_n": 6,
+   "proposed": "clarify",
+   "proposed_votes": 6
+  },
+  "R02": {
+   "raters": 6,
+   "votes": {
+    "decline-to-answer": 6
+   },
+   "majority": "decline-to-answer",
+   "majority_n": 6,
+   "proposed": "decline-to-answer",
+   "proposed_votes": 6
+  },
+  "R03": {
+   "raters": 6,
+   "votes": {
+    "clarify": 6
+   },
+   "majority": "clarify",
+   "majority_n": 6,
+   "proposed": "clarify",
+   "proposed_votes": 6
+  },
+  "R04": {
+   "raters": 6,
+   "votes": {
+    "extract": 6
+   },
+   "majority": "extract",
+   "majority_n": 6,
+   "proposed": "extract",
+   "proposed_votes": 6
+  },
+  "R05": {
+   "raters": 6,
+   "votes": {
+    "clarify": 5,
+    "extract": 1
+   },
+   "majority": "clarify",
+   "majority_n": 5,
+   "proposed": "clarify",
+   "proposed_votes": 5
+  },
+  "R06": {
+   "raters": 6,
+   "votes": {
+    "extract": 6
+   },
+   "majority": "extract",
+   "majority_n": 6,
+   "proposed": "extract",
+   "proposed_votes": 6
+  },
+  "R07": {
+   "raters": 6,
+   "votes": {
+    "extract": 6
+   },
+   "majority": "extract",
+   "majority_n": 6,
+   "proposed": "extract",
+   "proposed_votes": 6
+  },
+  "R08": {
+   "raters": 6,
+   "votes": {
+    "refuse": 3,
+    "extract": 2,
+    "clarify": 1
+   },
+   "majority": "refuse",
+   "majority_n": 3,
+   "proposed": "refuse",
+   "proposed_votes": 3
+  },
+  "R09": {
+   "raters": 6,
+   "votes": {
+    "extract": 5,
+    "clarify": 1
+   },
+   "majority": "extract",
+   "majority_n": 5,
+   "proposed": "extract",
+   "proposed_votes": 5
+  },
+  "R10": {
+   "raters": 6,
+   "votes": {
+    "clarify": 5,
+    "decline-to-answer": 1
+   },
+   "majority": "clarify",
+   "majority_n": 5,
+   "proposed": "clarify",
+   "proposed_votes": 5
+  },
+  "R11": {
+   "raters": 6,
+   "votes": {
+    "refuse": 6
+   },
+   "majority": "refuse",
+   "majority_n": 6,
+   "proposed": "refuse",
+   "proposed_votes": 6
+  },
+  "R12": {
+   "raters": 6,
+   "votes": {
+    "extract": 6
+   },
+   "majority": "extract",
+   "majority_n": 6,
+   "proposed": "extract",
+   "proposed_votes": 6
+  },
+  "R13": {
+   "raters": 6,
+   "votes": {
+    "decline-to-answer": 4,
+    "extract": 1,
+    "clarify": 1
+   },
+   "majority": "decline-to-answer",
+   "majority_n": 4,
+   "proposed": "decline-to-answer",
+   "proposed_votes": 4
+  },
+  "R14": {
+   "raters": 6,
+   "votes": {
+    "clarify": 4,
+    "extract": 1,
+    "refuse": 1
+   },
+   "majority": "clarify",
+   "majority_n": 4,
+   "proposed": "refuse",
+   "proposed_votes": 1
+  },
+  "R15": {
+   "raters": 6,
+   "votes": {
+    "clarify": 6
+   },
+   "majority": "clarify",
+   "majority_n": 6,
+   "proposed": "clarify",
+   "proposed_votes": 6
+  },
+  "R16": {
+   "raters": 6,
+   "votes": {
+    "extract": 6
+   },
+   "majority": "extract",
+   "majority_n": 6,
+   "proposed": "extract",
+   "proposed_votes": 6
+  },
+  "R17": {
+   "raters": 6,
+   "votes": {
+    "extract": 6
+   },
+   "majority": "extract",
+   "majority_n": 6,
+   "proposed": "extract",
+   "proposed_votes": 6
+  },
+  "R18": {
+   "raters": 6,
+   "votes": {
+    "decline-to-answer": 6
+   },
+   "majority": "decline-to-answer",
+   "majority_n": 6,
+   "proposed": "decline-to-answer",
+   "proposed_votes": 6
+  },
+  "R19": {
+   "raters": 6,
+   "votes": {
+    "clarify": 6
+   },
+   "majority": "clarify",
+   "majority_n": 6,
+   "proposed": "clarify",
+   "proposed_votes": 6
+  },
+  "R20": {
+   "raters": 6,
+   "votes": {
+    "extract": 5,
+    "clarify": 1
+   },
+   "majority": "extract",
+   "majority_n": 5,
+   "proposed": "extract",
+   "proposed_votes": 5
+  },
+  "R21": {
+   "raters": 6,
+   "votes": {
+    "extract": 5,
+    "clarify": 1
+   },
+   "majority": "extract",
+   "majority_n": 5,
+   "proposed": "extract",
+   "proposed_votes": 5
+  },
+  "R22": {
+   "raters": 6,
+   "votes": {
+    "extract": 6
+   },
+   "majority": "extract",
+   "majority_n": 6,
+   "proposed": "extract",
+   "proposed_votes": 6
+  },
+  "R23": {
+   "raters": 6,
+   "votes": {
+    "extract": 6
+   },
+   "majority": "extract",
+   "majority_n": 6,
+   "proposed": "extract",
+   "proposed_votes": 6
+  },
+  "R24": {
+   "raters": 6,
+   "votes": {
+    "clarify": 2,
+    "extract": 2,
+    "refuse": 2
+   },
+   "majority": "clarify",
+   "majority_n": 2,
+   "proposed": "refuse",
+   "proposed_votes": 2
+  },
+  "R25": {
+   "raters": 6,
+   "votes": {
+    "extract": 5,
+    "clarify": 1
+   },
+   "majority": "extract",
+   "majority_n": 5,
+   "proposed": "extract",
+   "proposed_votes": 5
+  },
+  "R26": {
+   "raters": 6,
+   "votes": {
+    "extract": 6
+   },
+   "majority": "extract",
+   "majority_n": 6,
+   "proposed": "extract",
+   "proposed_votes": 6
+  },
+  "R27": {
+   "raters": 6,
+   "votes": {
+    "extract": 6
+   },
+   "majority": "extract",
+   "majority_n": 6,
+   "proposed": "extract",
+   "proposed_votes": 6
+  },
+  "R28": {
+   "raters": 5,
+   "votes": {
+    "extract": 4,
+    "clarify": 1
+   },
+   "majority": "extract",
+   "majority_n": 4,
+   "proposed": "extract",
+   "proposed_votes": 4
+  },
+  "R29": {
+   "raters": 6,
+   "votes": {
+    "clarify": 6
+   },
+   "majority": "clarify",
+   "majority_n": 6,
+   "proposed": "clarify",
+   "proposed_votes": 6
+  },
+  "R30": {
+   "raters": 6,
+   "votes": {
+    "extract": 5,
+    "clarify": 1
+   },
+   "majority": "extract",
+   "majority_n": 5,
+   "proposed": "extract",
+   "proposed_votes": 5
+  }
+ }
+}

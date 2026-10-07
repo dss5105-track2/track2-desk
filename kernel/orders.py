@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import csv
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -42,10 +42,21 @@ def load_orders(path: Path = DATA_DIR / "orders.csv") -> Dict[str, Order]:
     return out
 
 
+def last_week(today: date = TODAY):
+    """Monday to Sunday of the calendar week before `today`."""
+    monday = today - timedelta(days=today.weekday() + 7)
+    return monday, monday + timedelta(days=6)
+
+
 def find_orders(orders: Dict[str, Order], customer: Optional[str] = None, product: Optional[str] = None,
-                in_progress_only: bool = True) -> List[Order]:
+                in_progress_only: bool = True, placed_from: Optional[date] = None, placed_to: Optional[date] = None,
+                largest_first: bool = False) -> List[Order]:
     out = []
     for o in orders.values():
+        if placed_from and o.order_date < placed_from:
+            continue
+        if placed_to and o.order_date > placed_to:
+            continue
         if customer and o.customer.lower() != customer.lower():
             continue
         if product and o.product.lower() != product.lower():
@@ -53,6 +64,8 @@ def find_orders(orders: Dict[str, Order], customer: Optional[str] = None, produc
         if in_progress_only and o.status != "IN_PROGRESS":
             continue
         out.append(o)
+    if largest_first:
+        return sorted(out, key=lambda o: (-o.pieces, o.order_id))
     return sorted(out, key=lambda o: o.due_date)
 
 

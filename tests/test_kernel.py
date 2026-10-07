@@ -89,7 +89,7 @@ def test_r21_cheapest_that_makes_apr_13_is_giantweave():
     assert "W3" not in on_time                            # BudgetWorks is cheaper but cannot make the date
 
 
-def test_no_on_time_option_r06():
+def test_no_on_time_option_ord061():
     o = O["ORD-061"]  # 800 scarves, due 2026-04-05, 4 days of slack
     ests = estimate_all(W, o.category, o.pieces, q0(), TODAY, o.due_date, include_rework=False)
     assert all(not e.on_time for e in ests)
@@ -135,7 +135,7 @@ def test_find_by_name():
     assert find_by_name(W, "Little Loom does lovely work") == ["W4"]
 
 
-def test_split_estimate_r23_gains_little():
+def test_split_estimate_ord093_gains_little():
     o = O["ORD-093"]  # 100 beanies
     s = split_estimate(W, o.category, o.pieces, q0(), TODAY, o.due_date)
     assert s["possible"] and s["gain_days"] < 1.0
@@ -155,7 +155,7 @@ def _commit(L, rid, oid, wid):
 def test_protocol_ledger_changes_r12_and_r21():
     """eval/protocol.md: the gold answer depends on earlier commits and on the session ban."""
     L = Ledger(W, TODAY)
-    a = Allocator("lateness")
+    a = Allocator("lateness_v1")          # earliest finish; the mechanics below do not depend on the rule
     # R12 processed in isolation -> Nimble Needle
     assert a.rank(_batch("ORD-053"), W, L.queues(), exclude=["W1"])[0]["estimate"].workshop_id == "W6"
     # R09 commits 150 vests to Nimble Needle first
@@ -177,7 +177,7 @@ def test_protocol_ledger_changes_r12_and_r21():
 
 def test_r25_ban_changes_winner():
     L = Ledger(W, TODAY)
-    a = Allocator("lateness")
+    a = Allocator("lateness_v1")
     _commit(L, "R09", "ORD-045", "W6")
     _commit(L, "R12", "ORD-053", "W5")
     with_ban = a.rank(_batch("ORD-109"), W, L.queues(), exclude=["W1", "W3"])

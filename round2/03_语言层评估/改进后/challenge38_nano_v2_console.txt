@@ -1,0 +1,64 @@
+{
+ "field_accuracy_pct": 98.54,
+ "requests_with_all_fields_right_pct": 83.33,
+ "wrong_by_field": {
+  "missing_fields": 14,
+  "preference": 3,
+  "references_prior": 2,
+  "constraint_scope": 1
+ },
+ "behaviour_accuracy_pct": 96.49,
+ "subtype_accuracy_pct": 86.84,
+ "behaviour_by_class": {
+  "clarify": "31/33",
+  "decline-to-answer": "15/15",
+  "extract": "48/48",
+  "refuse": "16/18"
+ },
+ "decision_sound_pct": 90.91,
+ "decisions_checked": 66,
+ "numbers_traced_pct": 100.0,
+ "reply_complete_pct": 100.0,
+ "consistency": {
+  "runs": 3,
+  "same_subtype_pct": 89.5,
+  "same_subtype_and_workshop_pct": 52.6,
+  "same_parse_outcome_pct": 84.2
+ },
+ "parser": "llm:gpt-5-nano",
+ "runs": 3,
+ "requests": 38,
+ "objective": "lateness",
+ "tag": "challenge38",
+ "prompt": "v2",
+ "grounding": true,
+ "values_corrected_by_grounding": 15,
+ "llm_calls": 114,
+ "fallbacks_to_rules": 0,
+ "spent_usd": 0.0359,
+ "mean_output_tokens": 493,
+ "fallback_reasons": []
+}
+
+rows with any problem: 21 of 114
+  run 1 C10: behaviour clarify/clarify | decision ok | reply ok | fields missing_fields: got ['order_id', 'pieces', 'due_date'] want ['order_id']
+  run 1 C15: behaviour extract/clarify | decision ok | reply ok | fields missing_fields: got [] want ['due_date']
+  run 1 C26: behaviour clarify/clarify | decision ok | reply ok | fields missing_fields: got ['order_id', 'pieces', 'due_date'] want ['order_id']
+  run 1 C32: behaviour clarify/clarify | decision ok | reply ok | fields references_prior: got None want 'C06';missing_fields: got ['order_id'] want ['order_id', 'pieces', 'due_date']
+  run 1 C34: behaviour clarify/refuse | decision wrong behaviour, no decision to check | reply ok | fields missing_fields: got ['due_date'] want []
+  run 1 C35: behaviour clarify/clarify | decision ok | reply ok | fields missing_fields: got ['order_id', 'pieces', 'due_date'] want ['order_id']
+  run 2 C03: behaviour extract/extract | decision fastest was asked; a faster on-time shop exists | reply ok | fields preference: got 'none' want 'fastest'
+  run 2 C07: behaviour extract/extract | decision cheapest on time was asked; a cheaper on-time shop exists | reply ok | fields preference: got 'none' want 'cheapest_on_time'
+  run 2 C10: behaviour clarify/clarify | decision ok | reply ok | fields missing_fields: got ['order_id', 'pieces', 'due_date'] want ['order_id']
+  run 2 C26: behaviour clarify/clarify | decision ok | reply ok | fields missing_fields: got ['order_id', 'pieces', 'due_date'] want ['order_id']
+  run 2 C32: behaviour clarify/clarify | decision ok | reply ok | fields missing_fields: got ['order_id'] want ['order_id', 'pieces', 'due_date']
+  run 2 C35: behaviour clarify/clarify | decision ok | reply ok | fields missing_fields: got ['order_id', 'pieces', 'due_date'] want ['order_id']
+  run 3 C07: behaviour extract/extract | decision cheapest on time was asked; a cheaper on-time shop exists | reply ok | fields preference: got 'none' want 'cheapest_on_time'
+  run 3 C10: behaviour clarify/clarify | decision ok | reply ok | fields missing_fields: got ['order_id', 'pieces', 'due_date'] want ['order_id']
+  run 3 C15: behaviour extract/clarify | decision ok | reply ok | fields missing_fields: got [] want ['due_date']
+  run 3 C18: behaviour extract/extract | decision ok | reply ok | fields constraint_scope: got 'request' want 'session'
+  run 3 C20: behaviour extract/extract | decision recommended W5 is ineligible or excluded | reply ok | fields 
+  run 3 C21: behaviour extract/refuse | decision wrong behaviour, no decision to check | reply ok | fields 
+  run 3 C26: behaviour clarify/clarify | decision ok | reply ok | fields missing_fields: got ['order_id', 'pieces', 'due_date'] want ['order_id']
+  run 3 C32: behaviour clarify/clarify | decision ok | reply ok | fields references_prior: got None want 'C06'
+  run 3 C35: behaviour clarify/clarify | decision ok | reply ok | fields missing_fields: got ['order_id', 'pieces', 'due_date'] want ['order_id']

@@ -1,0 +1,32 @@
+{
+ "field_accuracy_pct": 94.52,
+ "requests_with_all_fields_right_pct": 60.53,
+ "wrong_by_field": {
+  "missing_fields": 7,
+  "question_type": 5,
+  "forced_workshop": 4,
+  "due_date": 2,
+  "excluded_workshops": 2,
+  "references_prior": 2,
+  "preference": 1,
+  "constraint_scope": 1,
+  "pieces": 1
+ },
+ "behaviour_accuracy_pct": 84.21,
+ "subtype_accuracy_pct": 76.32,
+ "behaviour_by_class": {
+  "clarify": "10/11",
+  "decline-to-answer": "1/5",
+  "extract": "16/16",
+  "refuse": "5/6"
+ },
+ "decision_sound_pct": 86.36,
+ "decisions_checked": 22,
+ "numbers_traced_pct": 100.0,
+ "reply_complete_pct": 100.0,
+ "parser": "rules",
+ "runs": 1,
+ "requests": 38,
+ "objective": "lateness",
+ "tag": "challenge38"
+}

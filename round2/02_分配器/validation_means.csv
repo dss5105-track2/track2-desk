@@ -1,0 +1,29 @@
+﻿data,policy,pct_late,late_days,mean_days,p90_days,pct_def_pcs,max_share,cost
+fresh perturbed (100 sets),earliest_finish,1.681,0.087,7.587,13.644,5.17,27.49,113581.333
+fresh perturbed (100 sets),lateness (v2 rule),0.914,0.041,8.813,15.749,5.097,27.877,113529.833
+fresh perturbed (100 sets),use_slack,0.789,0.035,13.604,23.775,4.413,36.092,102192.167
+fresh perturbed (100 sets),lateness_v1,1.708,0.088,7.577,13.701,5.193,27.568,113624.433
+fresh tight due dates 10-21 days (50 sets),earliest_finish,6.222,0.309,7.629,13.833,5.159,27.388,113211.667
+fresh tight due dates 10-21 days (50 sets),lateness (v2 rule),4.517,0.226,7.977,13.165,4.944,27.662,112703.2
+fresh tight due dates 10-21 days (50 sets),use_slack,4.372,0.223,10.013,15.504,4.788,30.17,107458.667
+fresh tight due dates 10-21 days (50 sets),lateness_v1,6.256,0.311,7.617,13.855,5.106,27.492,113251.6
+fresh +10 accessory orders (50 sets),earliest_finish,4.0,0.228,8.974,17.605,4.819,25.667,122334.8
+fresh +10 accessory orders (50 sets),lateness (v2 rule),2.754,0.155,9.842,19.504,4.736,25.767,122485.933
+fresh +10 accessory orders (50 sets),use_slack,2.687,0.166,14.536,24.981,3.788,33.987,110826.8
+fresh +10 accessory orders (50 sets),lateness_v1,3.974,0.228,8.958,17.572,4.774,25.833,122388.733
+official (used while exploring),earliest_finish,1.667,0.178,8.26,14.37,7.182,26.283,115566.5
+official (used while exploring),lateness (v2 rule),1.667,0.091,9.251,15.687,7.717,28.364,115438.0
+official (used while exploring),use_slack,1.0,0.066,13.971,24.503,6.775,31.968,105502.5
+official (used while exploring),lateness_v1,1.667,0.18,8.235,14.531,7.492,26.209,115591.5
+official --shock (used while exploring),earliest_finish,1.917,0.191,8.509,15.338,7.118,26.524,115459.5
+official --shock (used while exploring),lateness (v2 rule),2.0,0.104,9.4,15.749,7.545,28.385,115252.0
+official --shock (used while exploring),use_slack,1.667,0.101,13.992,24.272,6.904,33.658,106101.0
+official --shock (used while exploring),lateness_v1,1.917,0.181,8.456,15.022,7.374,26.38,115283.5
+due_7_14 (used while exploring),earliest_finish,23.917,1.178,8.26,14.37,7.182,26.283,115566.5
+due_7_14 (used while exploring),lateness (v2 rule),19.417,1.07,8.427,14.08,7.321,26.578,115180.5
+due_7_14 (used while exploring),use_slack,20.25,0.943,8.902,13.567,7.524,28.332,112802.0
+due_7_14 (used while exploring),lateness_v1,24.0,1.183,8.235,14.531,7.492,26.209,115591.5
+acc_surge (used while exploring),earliest_finish,14.286,1.481,12.644,25.105,6.676,23.135,137570.5
+acc_surge (used while exploring),lateness (v2 rule),10.714,1.171,12.776,23.94,6.509,24.011,137364.0
+acc_surge (used while exploring),use_slack,10.214,1.218,16.629,28.269,5.958,26.495,128772.5
+acc_surge (used while exploring),lateness_v1,14.214,1.484,12.617,25.038,6.549,23.442,137590.5

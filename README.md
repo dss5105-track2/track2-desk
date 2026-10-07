@@ -4,7 +4,20 @@
 
 团队：屈妍玥 · 张锦若 · 吴杰 · 李岩 · 吴若晗 · 许佩瑶
 
-> **状态：第一周（2026-09-14）。** 仓库内容由 Claude 起草。已在 Python 3.12 上跑通全部测试、官方模拟器、基线对比与压力场景，结果见 [`docs/results_week1.md`](docs/results_week1.md)。GPT-5 nano 调用尚未验证。
+> **状态：第一周（2026-09-14）。** 仓库内容由 Claude 起草。已在 Python 3.12 上跑通全部测试、官方模拟器、基线对比、压力场景和调度员界面，结果见 [`docs/results_week1.md`](docs/results_week1.md)。
+>
+> **2026-10-04：数据已换成老师的 v3。** 群聊 9 条请求改了订单和日期（R04 R06 R07 R16 R17 R22 R23 R26 R27），模拟器的 `--shock` 结果要按 10 个 seed 重跑，详见 [`data/CHANGELOG.md`](data/CHANGELOG.md)。`orders.csv`、`workshops.csv` 和不加 `--shock` 的模拟器结果都没变。`docs/results_week1.md` 里的 shock 数字和 30 条请求结果是 v2 的，已过时。全组已定：30 条请求按时间顺序处理，前面确认派出的单子占用后面的产能。
+>
+> **2026-10-05：第二轮（分支 `claude/round2`）。** 2026-10-07 起：30 条标签已定稿（`eval/gold_labels.csv`），语言层默认用 GPT-5 mini。第二轮的全部结果、汇报稿和失败案例清单在 [`round2/`](round2/README.md)。 主目标定为最少迟交。改了五处：迟交目标换成“先保返工后仍按时，再选专做这一类的车间，最后才看谁最快”的规则；每个估算给两个日期（预计、返工后）；LLM 提取的每个值由代码对照原文核对；语言层有了分项评估脚本；调度员界面按“下一步做什么”分组并支持一键确认。改了什么、实测结果和已知问题见 [`docs/round2_changes.md`](docs/round2_changes.md)。
+
+## 打开调度员界面
+
+```bash
+python -m pip install -r requirements.txt
+streamlit run app/streamlit_app.py
+```
+
+浏览器会打开 http://localhost:8501 。点左侧 **Load morning inbox** 收到 4 月 1 日的 30 条群聊，然后逐条点开处理。**系统只推荐，确认按钮按下之前不会派出任何一单。** 页面说明和演示脚本见 [`docs/ui_guide.md`](docs/ui_guide.md)。
 
 ## 快速开始
 
@@ -23,22 +36,38 @@ python llm/llm_client.py
 
 | 命令 | 期望结果 |
 |---|---|
-| `tests/test_kernel.py` | 全部 PASS，`failed: 0` |
+| `tests/test_kernel.py` | 全部 PASS，`failed: 0`；`tests/test_desk.py` 和 `tests/test_round2.py` 同样直接运行 |
 | `harness/simulate.py` | 官方三个 baseline 表 |
-| `harness/run_baselines.py` | 官方 baseline + 十行启发式 + 五个目标配置，写入 `results/` |
+| `harness/run_baselines.py` | 官方 baseline + 简单规则分配器（earliest_finish）+ 五个目标配置，写入 `results/`；加 `--shock` 时默认跑 seed 5105 到 5114 取平均，并给出正常跑到 shock 的变化量 |
 | `harness/run_seeds.py` | 每个策略迟交率与 P90 的最小、平均、最大值 |
 | `eval/compute_gold_facts.py` | 按协议重放 30 条请求的推荐与数字，写入标签文件所在目录；定稿前是 `eval/draft/`，独立分类前不要打开 |
 | `llm/llm_client.py` | 规则回退解析器对 30 条请求的解析结果 |
+
+### 端到端跑一遍早上的 30 条群聊
+
+```bash
+python desk/pipeline.py
+python desk/pipeline.py --only R21
+python desk/pipeline.py --llm
+```
+
+| 命令 | 作用 |
+|---|---|
+| `desk/pipeline.py` | 用规则解析器按时间顺序处理 30 条：解析 → 订单状态检查 → 判定派单、追问、拒绝或无法回答 → 内核算交期与排序 → 用工具输出生成解释并核查数字 → 派单请求自动确认后写账本。不联网、不花钱 |
+| `--only R21` | 只看一条请求的完整决策和工具调用链 |
+| `--llm` | 改用 LLM 解析（默认 GPT-5 mini），需要 `.env`，会产生费用 |
+
+输出写入 `eval/runs/<时间>/`，该目录被 git 忽略：`transcript.md` 是人能读的逐条记录，`decisions.jsonl` 是结构化决策，`audit.json` 是账本审计记录。如果 `eval/draft/` 里有标准答案草稿，运行结束会打印对照分数。**独立分类交齐之前不要看这些输出，里面有答案。**
 
 **引用任何模拟器数字时，同时写出命令、seed 和 commit。** `run_baselines.py` 会把 commit 写进 CSV。
 
 ## LLM 账号、费用与密钥
 
-语言层用 OpenAI 的 GPT-5 nano 从群聊里提取字段，其余一律由 `kernel/` 计算。不配置 LLM 时系统自动使用规则解析器，所有测试和模拟器实验都不需要密钥。
+语言层用 OpenAI 的 GPT-5 mini 从群聊里提取字段，其余一律由 `kernel/` 计算。不配置 LLM 时系统自动使用规则解析器，所有测试和模拟器实验都不需要密钥。
 
 **账号。** 程序通过 OpenAI API 调用模型，需要在 [platform.openai.com](https://platform.openai.com) 注册账号、充值并生成 API key。ChatGPT 的订阅不包含 API 额度，不能给程序调用。建议由 LLM 基础设施负责人吴若晗注册团队账号并充值，给每位需要调用的组员各生成一把 key，便于单独吊销。
 
-**模型。** 默认 `gpt-5-nano`，是 GPT-5 系列里最便宜的，足够完成字段提取。价格来自 OpenAI 官方价目表，2026-09-13 核对：
+**模型。** 默认 `gpt-5-mini`（2026-10-07 全组定）：第二轮实测在官方 30 条和 38 条新消息上行为和决策全对，每 30 条约 3.6 美分。`gpt-5-nano` 便宜约 4 倍，但有一种说法读不对；想用它就在 `.env` 里写 `DESK_LLM_MODEL=gpt-5-nano`。价格来自 OpenAI 官方价目表，2026-09-13 核对：
 
 | 模型 | 输入 $/百万 token | 输出 $/百万 token |
 |---|---|---|
@@ -87,7 +116,7 @@ kernel/              确定性内核，零 LLM
   register.py        车间登记册与资格三问
   orders.py          订单表与状态交叉检查
   estimator.py       交期估算（队列 + 加工 + 返工期望 + 运输）与拆单估算
-  allocator.py       目标即配置的分配器；十行启发式
+  allocator.py       目标即配置的分配器；简单规则分配器 earliest_finish
   ledger.py          队列账本与审计记录
 language/            结构化请求 schema 与 30 条手工解析
 llm/                 LLM 客户端接口与规则回退解析器

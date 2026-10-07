@@ -1,0 +1,41 @@
+{
+ "field_accuracy_pct": 98.47,
+ "requests_with_all_fields_right_pct": 85.0,
+ "wrong_by_field": {
+  "references_prior": 4,
+  "preference": 3,
+  "missing_fields": 2,
+  "question_type": 2
+ },
+ "behaviour_accuracy_pct": 96.67,
+ "subtype_accuracy_pct": 96.67,
+ "behaviour_by_class": {
+  "clarify": "14/14",
+  "decline-to-answer": "6/6",
+  "extract": "31/32",
+  "refuse": "7/8"
+ },
+ "decision_sound_pct": 95.0,
+ "decisions_checked": 40,
+ "numbers_traced_pct": 100.0,
+ "reply_complete_pct": 100.0,
+ "consistency": {
+  "runs": 2,
+  "same_subtype_pct": 86.7,
+  "same_subtype_and_workshop_pct": 73.3,
+  "same_parse_outcome_pct": 80.0
+ },
+ "parser": "llm:gpt-5-nano",
+ "runs": 2,
+ "requests": 30,
+ "objective": "lateness",
+ "tag": "official30",
+ "prompt": "v1",
+ "grounding": true,
+ "values_corrected_by_grounding": 26,
+ "llm_calls": 60,
+ "fallbacks_to_rules": 0,
+ "spent_usd": 0.0195,
+ "mean_output_tokens": 620,
+ "fallback_reasons": []
+}

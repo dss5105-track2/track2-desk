@@ -1,0 +1,24 @@
+{
+ "field_accuracy_pct": 100.0,
+ "requests_with_all_fields_right_pct": 100.0,
+ "wrong_by_field": {},
+ "behaviour_accuracy_pct": 100.0,
+ "subtype_accuracy_pct": 100.0,
+ "behaviour_by_class": {
+  "clarify": "11/11",
+  "decline-to-answer": "5/5",
+  "extract": "16/16",
+  "refuse": "6/6"
+ },
+ "decision_sound_pct": 100.0,
+ "decisions_checked": 22,
+ "numbers_traced_pct": 100.0,
+ "reply_complete_pct": 100.0,
+ "parser": "rules",
+ "runs": 1,
+ "requests": 38,
+ "objective": "lateness",
+ "tag": "challenge38"
+}
+
+rows with any problem: 0 of 38
