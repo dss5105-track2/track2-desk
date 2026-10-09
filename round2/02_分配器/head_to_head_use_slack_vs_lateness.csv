@@ -1,0 +1,11 @@
+﻿data,policy,pct_late,late_days,mean_days,p90_days,cost,pct_late_min,pct_late_max,pct_late_better,pct_late_equal,pct_late_worse,sign_test_p,late_days_better,late_days_equal,late_days_worse,sign_test_p_late_days
+"official 120 orders, 10 seeds",lateness,1.667,0.091,9.251,15.687,115438.0,1.667,1.667,,,,,,,,
+"official 120 orders, 10 seeds",use_slack,1.0,0.066,13.971,24.503,105502.5,0.833,1.667,8,2,0,0.00781,8,0,2,0.10938
+"official --shock, 10 seeds",lateness,2.0,0.104,9.4,15.749,115252.0,1.667,2.5,,,,,,,,
+"official --shock, 10 seeds",use_slack,1.667,0.101,13.992,24.272,106101.0,0.833,2.5,5,4,1,0.21875,6,0,4,0.75391
+fresh perturbed (100 sets),lateness,0.914,0.041,8.813,15.749,113529.833,0.0,2.5,,,,,,,,
+fresh perturbed (100 sets),use_slack,0.789,0.035,13.604,23.775,102192.167,0.0,2.5,38,40,22,0.05189,52,19,29,0.014
+fresh tight due dates 10-21 days (50 sets),lateness,4.517,0.226,7.977,13.165,112703.2,1.944,8.611,,,,,,,,
+fresh tight due dates 10-21 days (50 sets),use_slack,4.372,0.223,10.013,15.504,107458.667,1.667,8.611,26,4,20,0.46139,27,2,21,0.47088
+fresh +10 accessory orders (50 sets),lateness,2.754,0.155,9.842,19.504,122485.933,0.0,7.436,,,,,,,,
+fresh +10 accessory orders (50 sets),use_slack,2.687,0.166,14.536,24.981,110826.8,0.0,7.692,23,11,16,0.33678,18,4,28,0.18392
