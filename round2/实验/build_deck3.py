@@ -221,7 +221,7 @@ s.add(Text(6.9, 6.14, 5.83, 0.85, [
 s = new_slide("The model reads, code decides, the dispatcher confirms", n=2, notes=(
     "[50 s] The model only reads. Code checks every extracted value against the text, runs three hard eligibility checks, gives each eligible shop two dates, "
     "and ranks by the objective. The explanation is written from tool outputs, and nothing is booked until the dispatcher confirms. "
-    "Here is one real message going through: the standing constraint is recorded, four shops are eligible, GiantWeave makes the date even if reworked."))
+    "Here is one real message going through: the standing constraint is recorded, four shops are eligible, GiantWeave is on time, but a day late if reworked, and the dispatcher sees both dates."))
 stages = [
     ("Chat message", "INPUT", GREY_T, TXT, SUB, "Free text from five people, as they type it."),
     ("Language layer", "LANGUAGE MODEL + CHECK", BLUE_T, TXT, BLUE_D, "The model extracts order, pieces, date, constraint. Code checks each value against the text."),
@@ -249,7 +249,7 @@ for i, (lead, rest) in enumerate(mech):
 label(s, LM, 5.76, 8, "ONE REAL MESSAGE, R12, THROUGH THE FIVE STAGES", SUB)
 trace = ["“ORD-053 — 800 polo shirts for UrbanThread, due Apr 10. Boss says nothing new to QuickStitch this week.”",
          "ORD-053 · 800 pcs · due 10 Apr · constraint: QuickStitch excluded — standing, set by Boss",
-         "4 shops eligible. GiantWeave back Fri 10 Apr; Sat 11 Apr if reworked, still on time",
+         "4 shops eligible. GiantWeave back Fri 10 Apr, on time; Sat 11 Apr if reworked, a day late",
          "“GiantWeave: on time; it only makes tops, so the two shops that also make accessories stay free for tighter batches.”",
          "Confirmed → ledger updated, audit record A0004"]
 for i, t in enumerate(trace):
@@ -486,7 +486,7 @@ SCRIPT = [
     "One, the text decides: every extracted value is checked against the message, and anything the message does not contain is dropped. "
     "Two, eligibility before ranking: three hard checks, then two dates per eligible shop, expected and if reworked, and only then a ranking by the objective. "
     "Three, traced, then booked: every number in the explanation comes from a tool output, and nothing is booked until the dispatcher confirms. "
-    "The bottom row is one real message going through: the standing constraint recorded, four shops eligible, GiantWeave on time even if reworked.",
+    "The bottom row is one real message going through: the standing constraint recorded, four shops eligible, GiantWeave on time, a day late if reworked; the dispatcher sees both dates.",
     "[40 s] Our primary objective is to minimise late deliveries: the share of batches returned after their due date. Three reasons. "
     "Relevant: the due date is the one constraint every order carries, and quick response exists to protect it. Measurable: the simulator records when every batch returns. "
     "Controllable: lateness depends on queue, capacity and transport, exactly what the choice of workshop changes. "
