@@ -1,0 +1,19 @@
+{
+ "behaviour_accuracy_pct": 86.05,
+ "subtype_accuracy_pct": 74.42,
+ "behaviour_by_class": {
+  "clarify": "12/14",
+  "decline-to-answer": "2/3",
+  "extract": "19/20",
+  "refuse": "4/6"
+ },
+ "decision_sound_pct": 88.46,
+ "decisions_checked": 26,
+ "numbers_traced_pct": 100.0,
+ "reply_complete_pct": 100.0,
+ "parser": "rules",
+ "runs": 1,
+ "requests": 43,
+ "objective": "use_slack",
+ "tag": "heldout43"
+}

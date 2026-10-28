@@ -1,0 +1,34 @@
+{
+ "behaviour_accuracy_pct": 88.37,
+ "subtype_accuracy_pct": 79.84,
+ "behaviour_by_class": {
+  "clarify": "36/42",
+  "decline-to-answer": "9/9",
+  "extract": "57/60",
+  "refuse": "12/18"
+ },
+ "decision_sound_pct": 80.77,
+ "decisions_checked": 78,
+ "numbers_traced_pct": 100.0,
+ "reply_complete_pct": 100.0,
+ "consistency": {
+  "runs": 3,
+  "same_subtype_pct": 86.0,
+  "same_subtype_and_workshop_pct": 86.0,
+  "same_parse_outcome_pct": 100.0
+ },
+ "parser": "llm:gpt-5-mini",
+ "runs": 3,
+ "requests": 43,
+ "objective": "use_slack",
+ "tag": "heldout43",
+ "prompt": "v2",
+ "grounding": true,
+ "grounding_version": "2.2",
+ "values_corrected_by_grounding": 45,
+ "llm_calls": 129,
+ "fallbacks_to_rules": 0,
+ "spent_usd": 0.1769,
+ "mean_output_tokens": 379,
+ "fallback_reasons": []
+}
