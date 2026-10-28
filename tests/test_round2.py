@@ -271,6 +271,33 @@ def test_a_request_for_an_order_already_dispatched_is_not_dispatched_twice():
     assert d["subtype"] == "state_conflict" and len(desk.ledger.records) == 1
 
 
+def test_order_ids_without_leading_zeros_are_read():
+    r = RuleBasedParser().parse("C40 [09:00] Priya: ORD-99 — 1500 polo shirts for Northwind Apparel, due Apr 5.")
+    assert r["order_id"] == "ORD-099"
+    assert RuleBasedParser().parse("C41 [09:01] Priya: ORD-1234 is not an order id")["order_id"] is None
+
+
+def test_pieces_and_date_single_out_one_of_several_matching_orders():
+    desk = Desk()       # Northwind Apparel has two polo-shirt orders in progress: ORD-099 (1500, Apr 5) and ORD-066 (1000, Apr 26)
+    d = desk.handle("C42 [09:02] Priya: Northwind Apparel polo order needs a shop: 1000 polo shirts, due Apr 26.")
+    assert d["order_id"] == "ORD-066" and d["subtype"] != "ambiguous_reference"
+    d = desk.handle("C43 [09:03] Priya: Northwind Apparel polo order needs a shop: 700 polo shirts, due Apr 26.")
+    assert d["subtype"] == "ambiguous_reference"                   # nothing fits the pieces: still ask
+
+
+def test_a_status_message_naming_another_order_is_asked_about():
+    def as_status(line, prior=None):                               # a parser that reads every message as a progress report
+        r = RuleBasedParser().parse(line, prior)
+        r["question_type"] = "status"
+        return r
+    desk = Desk(parser=as_status)
+    d = desk.handle("C44 [09:04] Ravi: ORD-029: 800 cardigans for TrendCart, sent it out.")   # ORD-029 is Northwind Apparel's beanies
+    assert d["subtype"] == "state_conflict" and "Northwind Apparel" in d["explanation"]
+    assert d["number_check"]["ok"], d["number_check"]               # the order's pieces and date it quotes come from a tool output
+    d = desk.handle("C45 [09:05] Ravi: How far along are the Northwind Apparel beanies, ORD-029?")
+    assert d["subtype"] == "not_in_data"                          # names its own order: the progress answer stands
+
+
 def test_every_reply_stays_traced_after_a_refresh_and_a_bulk_confirm():
     desk = loaded()
     desk.refresh_all()                                             # a later standing constraint adds its time to earlier replies

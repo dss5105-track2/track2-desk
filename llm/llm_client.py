@@ -49,7 +49,7 @@ WORKSHOP_NAMES = {"QuickStitch": "W1", "SteadyHands": "W2", "BudgetWorks": "W3",
                   "GiantWeave": "W5", "Nimble Needle": "W6", "OldMill": "W7", "FreshStart": "W8"}
 
 LINE_RE = re.compile(r"^([A-Z]\d+)\s+\[(\d\d:\d\d)\]\s+([A-Za-z]+):\s*(.*)$")
-ORD_RE = re.compile(r"\bORD-\d{3}\b")
+ORD_RE = re.compile(r"\bORD-(\d{1,3})\b")     # people drop leading zeros: "ORD-40" is ORD-040
 DATE_RE = re.compile(r"\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?\b", re.I)
 DATE_DM_RE = re.compile(r"\b(\d{1,2})(?:st|nd|rd|th)?\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\b", re.I)
 PIECES_RE = re.compile(r"(?<![\w.-])(\d[\d,]*(?:\.\d+)?k?)\s+(polo shirts?|crewneck sweaters?|vests?|hoodies?|polos?|crewnecks?|cardigans?|scarves|scarf|beanies?)\b", re.I)
@@ -85,6 +85,11 @@ def parse_header(line: str) -> Tuple[Optional[str], Optional[str], Optional[str]
     return None, None, None, line.strip()
 
 
+def order_ids(text: str) -> List[str]:
+    """Order ids written in the text, in the order book's three-digit form ('ORD-40' -> 'ORD-040')."""
+    return [f"ORD-{int(n):03d}" for n in ORD_RE.findall(text)]
+
+
 class RuleBasedParser:
     """Deterministic extraction. Good enough to keep the demo alive; not the final parser."""
 
@@ -98,7 +103,7 @@ class RuleBasedParser:
         r["raw_text"] = text
         low = text.lower()
 
-        ords = ORD_RE.findall(text)
+        ords = order_ids(text)
         if ords:
             r["order_id"] = ords[0]
 
@@ -343,7 +348,7 @@ def ground(r: Dict, text: str, prior: Optional[List[Dict]] = None) -> Dict:
             changes.append(f"{field}: {r.get(field)!r} -> {value!r} ({why})")
             r[field] = value
 
-    ids = ORD_RE.findall(text)
+    ids = order_ids(text)
     setv("order_id", ids[0] if ids else None, "order ids are read from the text")
     if r.get("question_type") == "status" and DISPATCH_INTENT_RE.search(text):
         setv("question_type", "allocation", "the message asks for a dispatch")
