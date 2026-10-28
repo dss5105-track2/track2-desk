@@ -101,6 +101,14 @@ class Desk:
             notes.append(f"chat due date {req['due_date']} differs from orders.csv {order.due_date}")
         return notes
 
+    def _identity_clash(self, order, req) -> str:
+        """The customer or product the message names, when it is not this order's: the id is probably mistyped. '' when they agree.
+        Piece count and date differences stay flags (_mismatch_notes); the labelling rules do not stop on them."""
+        said = [v for v, own in ((req["customer"], order.customer), (req["product"], order.product)) if v and v.lower() != own.lower()]
+        if said and req["pieces"]:
+            said.append(f"{req['pieces']} pcs")
+        return ", ".join(said)
+
     def exclusions_for(self, req: dict) -> set:
         return set(req["excluded_workshops"]) | set(self.session_excl)
 
@@ -142,6 +150,20 @@ class Desk:
             d["tool_calls"].append({"tool": "state_checks", "output": ["order not found"]})
             d["explanation"] = f"{req['order_id']} does not exist in the order book, so I can't report on it or dispatch it. Please check the order number."
             return d
+        # a status reply skips every later check, so first make sure the message is about the order its id names:
+        # "ORD-035: 600 cardigans for UrbanThread, sent it out" names another order. Dispatch requests go on to the
+        # usual checks, which record any difference (labelling rules: note both, do not stop).
+        clash = self._identity_clash(order, req) if order and req["question_type"] == "status" else ""
+        if clash:
+            d["subtype"] = "state_conflict"
+            d["tool_calls"].append({"tool": "resolve_order_reference", "input": {"order_id": order.order_id},     # the record the reply quotes
+                                    "output": {"count": 1, "orders": [{"order_id": order.order_id, "customer": order.customer, "product": order.product,
+                                                                       "pieces": order.pieces, "due_date": order.due_date.isoformat(),
+                                                                       "stage": order.current_stage}]}})
+            d["tool_calls"].append({"tool": "state_checks", "input": order.order_id, "output": [f"message names {clash}"]})
+            d["explanation"] = (f"{order.order_id} in the order book is {order.customer}, {order.product}, {order.pieces} pcs, due {order.due_date}, "
+                                f"but your message names {clash}. Which order do you mean?")
+            return d
         if req["question_type"] == "status":
             d["subtype"] = "not_in_data"
             d["explanation"] = "Progress tracking is outside this desk; it only allocates batches to workshops."
@@ -176,6 +198,13 @@ class Desk:
                                     "Capacity depends on them, so I won't guess."
                                     + (f" If you mean an order already in progress, say which: {listing}." if cands else ""))
                 return d
+            if len(cands) > 1 and (req["pieces"] or req["due_date"]):
+                # several orders fit the customer and product; the piece count and due date in the message may single one out
+                fit = [o for o in cands if (not req["pieces"] or o.pieces == req["pieces"])
+                       and (not req["due_date"] or o.due_date.isoformat() == req["due_date"])]
+                if len(fit) == 1:
+                    d["flags"].append(f"{len(cands)} orders match the customer and product; only {fit[0].order_id} matches the pieces and due date")
+                    cands = fit
             if len(cands) == 1:
                 order = cands[0]
                 d["order_id"] = order.order_id
