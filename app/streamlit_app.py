@@ -433,9 +433,12 @@ with tab_desk:
     group = st.session_state.group
     view = [d for d in decisions if group_of(d) == group]
 
-    def urgency(d):          # tightest first: fewest days to spare, then arrival
+    def urgency(d):          # messages typed here first, newest on top; then the inbox, tightest first (fewest days to spare, then arrival)
         c = chosen(d)
-        return (margin(c, d) if (c and d.get("batch")) else 99, desk.arrival.get(d["request_id"], 0))
+        at = desk.arrival.get(d["request_id"], 0)
+        if not d["request_id"].startswith("R"):
+            return (0, -at, 0)
+        return (1, margin(c, d) if (c and d.get("batch")) else 99, at)
     view.sort(key=urgency)
 
     left, right = st.columns([6, 7], gap="large")
