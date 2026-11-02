@@ -39,6 +39,8 @@ st.set_page_config(page_title="SweaterCo Subcontracting Desk", page_icon="🧶",
 STATUS_LABEL = {
     "awaiting_confirmation": ("Confirm", "green"),
     "awaiting_decision": ("No on-time option", "orange"),
+    "closure_reported": ("Workshop stopped?", "orange"),
+    "closure_confirmed": ("Stop confirmed", "gray"),
     "refused": ("Refused · alternative", "red"),
     "needs_reply": ("Ask requester", "blue"),
     "answered": ("Can't answer", "gray"),
@@ -51,7 +53,7 @@ STATUS_LABEL = {
 }
 GROUPS = [  # (key, label, statuses) in the order a dispatcher works through them
     ("confirm", "To confirm", {"awaiting_confirmation"}),
-    ("decide", "Needs a decision", {"awaiting_decision", "refused"}),
+    ("decide", "Needs a decision", {"closure_reported", "awaiting_decision", "refused"}),
     ("ask", "Ask requester", {"needs_reply"}),
     ("answer", "Can't answer", {"answered"}),
     ("done", "Done", {"committed"} | HUMAN_STATUSES),
@@ -171,7 +173,8 @@ with st.sidebar:
         st.caption("None")
     for wid, src in list(desk.session_excl.items()):
         cc1, cc2 = st.columns([3, 1])
-        cc1.markdown(f"⛔ **{desk.name(wid)}** · no new work  \n<small>{src['by']} in {src['source']} at {src.get('time', '')} · applies to every open request</small>",
+        what = "stopped" if src.get("stopped") else "no new work"
+        cc1.markdown(f"⛔ **{desk.name(wid)}** · {what}  \n<small>{src['by']} in {src['source']} at {src.get('time', '')} · applies to every open request</small>",
                      unsafe_allow_html=True)
         if cc2.button("Lift", key=f"lift_{wid}"):
             desk.lift_constraint(wid)
@@ -215,6 +218,8 @@ def inbox_row(d: dict) -> dict:
     elif d["subtype"] == "ineligible_suggestion":
         decision = f"✕ {desk.name(d['refused_workshop'])}" + (f"  →  {c['name']}" if c else "")
         back, spare = (fmt_date(c["promised_date"]), margin(c, d)) if c else ("", None)
+    elif d["subtype"] == "closure_report":
+        decision = f"Stopped? {desk.name(d['reported_workshop'])}"
     elif d["official_behaviour"] == "clarify":
         decision = "Ask: which order?" if d["subtype"] == "ambiguous_reference" else "Ask: missing details"
     else:
@@ -259,7 +264,7 @@ def render_card(d: dict) -> None:
             (f"**{d['batch']['pieces']}** pcs {d['batch']['category']} · due **{fmt_date(d['batch']['due_date'])}** "
              f"({(date.fromisoformat(d['batch']['due_date']) - TODAY).days} days)") if d["batch"] else None,
             f"wants **{p['preference'].replace('_', ' ')}**" if p["preference"] != "none" else None,
-            f"asked for **{desk.name(p['forced_workshop'])}**" if p["forced_workshop"] else None,
+            f"asked for **{desk.name(p['forced_workshop'])}**" if p["forced_workshop"] and d["subtype"] != "closure_report" else None,
             "avoid " + ", ".join(f"**{desk.name(w)}**" for w in p["excluded_workshops"]) if p["excluded_workshops"] else None,
         ] if x]
         st.caption(" · ".join(facts) + f"  ·  parsed by {p['parser']}")
@@ -285,6 +290,8 @@ def render_card(d: dict) -> None:
             st.error(f"✕ **{desk.name(d['refused_workshop'])} can't take this.** "
                      + (f"Alternative: **{c['name']}**, back {fmt_date(c['promised_date'])}"
                         + ("" if c["on_time"] else f", {c['late_days']} days late") if c else "No eligible alternative."))
+        elif d["subtype"] == "closure_report":
+            st.warning("🛑 " + d["explanation"] if desk.is_open(d) else f"🛑 **{desk.name(d['reported_workshop'])}**: {STATUS_LABEL[d['status']][0].lower()}")
         elif d["official_behaviour"] == "clarify":
             st.info("? **Ask the requester before dispatching**")
         else:
@@ -328,6 +335,16 @@ def render_card(d: dict) -> None:
             st.write(rec["reason"])
         with st.expander("Audit record"):
             st.json(rec, expanded=False)
+
+    elif d["subtype"] == "closure_report" and desk.is_open(d):
+        wname = desk.name(d["reported_workshop"])
+        c1, c2 = st.columns(2)
+        if c1.button(f"Confirm: stop new work to {wname}", type="primary", key=f"stop_{rid}", width="stretch"):
+            act(desk.confirm_closure, rid, ok=f"{wname} marked as stopped; open requests re-ranked")
+            st.rerun()
+        if c2.button("Not stopped, dismiss", key=f"nostop_{rid}", width="stretch"):
+            act(desk.mark, rid, "dismissed", ok=f"{rid} dismissed")
+            st.rerun()
 
     elif d["subtype"] in ("allocate", "ineligible_suggestion", "no_on_time_option") and d["candidates"] and desk.is_open(d):
         best = d["candidates"][0]
@@ -415,6 +432,22 @@ with tab_desk:
             st.session_state.group_pending = group_of(nd)
             st.session_state.scroll_until = time.time() + 3
             st.rerun()
+    impact = desk.stopped_impact()
+    if impact:
+        with st.container(border=True):
+            st.markdown(f"**🛑 {len(impact)} dispatched {'batch is' if len(impact) == 1 else 'batches are'} at a stopped workshop.** Move, or leave to wait for it to reopen.")
+            for row in impact:
+                m1, m2 = st.columns([3, 2], vertical_alignment="center")
+                if row["best"]:
+                    b = row["best"]
+                    m1.markdown(f"**{row['order_id']}** · {row['pieces']} pcs at {desk.name(row['workshop_id'])} · due {fmt_date(row['due_date'])}. "
+                                f"Best now: **{b['name']}**, back {fmt_date(b['promised_date'])}" + ("" if b["on_time"] else f" ({b['late_days']}d late)"))
+                    if m2.button(f"Re-dispatch to {b['name']}", key=f"move_{row['audit_id']}", width="stretch"):
+                        act(desk.reassign, row["audit_id"], b["workshop_id"], reason=f"{desk.name(row['workshop_id'])} stopped",
+                            ok=f"{row['order_id']} re-dispatched to {b['name']}")
+                        st.rerun()
+                else:
+                    m1.markdown(f"**{row['order_id']}** · {row['pieces']} pcs at {desk.name(row['workshop_id'])}: no other workshop can take it.")
     if not desk.decisions:
         st.info("Type a message above, or click **Load morning inbox** in the sidebar to receive the 30 chat messages from 1 April.")
     desk.refresh_all()
@@ -511,6 +544,15 @@ with tab_ws:
     } for w in desk.W.values()])
     st.dataframe(reg, hide_index=True, width="stretch")
     st.bar_chart(reg, x="Name", y="Queue now (days)", horizontal=True, height=280)
+
+    st.subheader("A workshop has stopped")
+    st.caption("Stops new work there and lists what can be moved. Undo with Lift in the sidebar.")
+    sc1, sc2 = st.columns([3, 2], vertical_alignment="bottom")
+    active = [w.workshop_id for w in desk.W.values() if w.status == "ACTIVE" and w.workshop_id not in desk.session_excl]
+    stop_wid = sc1.selectbox("Workshop", active, format_func=desk.name)
+    if stop_wid and sc2.button("Mark as stopped", width="stretch"):
+        act(desk.mark_stopped, stop_wid, ok=f"{desk.name(stop_wid)} marked as stopped; open requests re-ranked")
+        st.rerun()
 
     st.subheader("Who can take a batch?")
     wc1, wc2 = st.columns(2)

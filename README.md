@@ -41,7 +41,7 @@ Copy `.env.example` to `.env` and set `OPENAI_API_KEY`. `.env` is git-ignored; n
 python -m pytest -q
 ```
 
-59 tests should pass.
+68 tests should pass.
 
 | Command | What it does |
 |---|---|
@@ -65,6 +65,7 @@ flowchart LR
 - **The model only reads.** Dates, queues and comparisons come from code tools, specified in [`docs/tool_spec.md`](docs/tool_spec.md).
 - **Four replies:** dispatch, ask back, refuse with a reason and an alternative, or say the data cannot answer.
 - **Nothing is booked until the dispatcher confirms.**
+- **A workshop can stop.** Report it in chat ("GiantWeave has shut for two weeks") or on the Workshops tab. Once the dispatcher confirms, no new work goes there, open requests are re-ranked, and batches already there can be moved in one click.
 - **The objective is a setting.** The interface offers three:
 
 | Setting | Role | How it ranks |
@@ -110,8 +111,9 @@ Records: [`first_run.md`](eval/heldout/first_run.md), [`second_run.md`](eval/hel
 
 ## Known limitations
 
-- **Closed workshops are not detected.** The kernel is not told about a closure and does not notice a queue that has stopped. Standing exclusions are set by people, in chat.
-- **Seven-day calendar.** Estimates assume a seven-day week, as the simulator does. A Sunday-closed variant exists only as an experiment (`experiments/scripts/exp_sunday.py`): the simple rule rises to 3.67% late.
+- **Closure handling relies on someone reporting it.** The desk has no feed of real queues. A queue-based detector works in the simulator (43 of 50 closures on unseen seeds, no false alarms) but does not reduce lateness, so it is not a default: see [`closure_detection.md`](experiments/simulator_assumptions/closure_detection.md).
+- **Report wording is matched by a pattern**, in code and not by the model, so an unusual phrasing is missed. It also cannot tell a real closure from a rumour, which is why a person confirms.
+- **Seven-day calendar: working days are not implemented.** Estimates assume a seven-day week, as the simulator does. A Sunday-closed variant exists only as an experiment (`experiments/scripts/exp_sunday.py`): the simple rule rises to 3.67% late.
 - **One message, two problems.** Messages that both name an ineligible workshop and repeat a dispatch (H41, H42) get "already sent?" where the labels say refuse. The labelling rules did not set an order, and this is not fixed.
 - **Status questions** about a customer with several orders (H03) are declined where the labels say ask back.
 - **The ledger lives in memory.** It is lost when the session ends unless `audit.json` is downloaded, and it suits one dispatcher.
@@ -132,7 +134,7 @@ eval/          Protocol, labelling guide, labels, scoring scripts, independent d
 eval/heldout/  Frozen held-out inbox and the records of each run
 experiments/   Scripts and results behind the numbers above, challenge set, failure cases
 docs/          Tool specification, architecture, interface guide, user test tasks, factory primer, round-2 history
-tests/         59 automated tests
+tests/         68 automated tests
 ```
 
 Some working documents are in Chinese, including the held-out run records, the interface guide and the evaluation protocol.

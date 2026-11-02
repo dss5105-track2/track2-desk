@@ -46,14 +46,18 @@ from llm.llm_client import RuleBasedParser, LLMClient  # noqa: E402
 
 OFFICIAL = {"allocate": "extract", "no_on_time_option": "extract", "ambiguous_reference": "clarify",
             "missing_fields": "clarify", "state_conflict": "clarify", "ineligible_suggestion": "refuse",
-            "not_in_data": "decline-to-answer"}
+            "not_in_data": "decline-to-answer", "closure_report": "clarify"}
 # what the dispatcher is expected to do next, per subtype
 STATUS = {"allocate": "awaiting_confirmation", "no_on_time_option": "awaiting_decision",
           "ineligible_suggestion": "refused", "ambiguous_reference": "needs_reply",
-          "missing_fields": "needs_reply", "state_conflict": "needs_reply", "not_in_data": "answered"}
+          "missing_fields": "needs_reply", "state_conflict": "needs_reply", "not_in_data": "answered",
+          "closure_report": "closure_reported"}
 # statuses a dispatcher can set without touching the ledger
-HUMAN_STATUSES = {"reply_sent", "answer_sent", "escalated", "renegotiating", "dismissed"}
+HUMAN_STATUSES = {"reply_sent", "answer_sent", "escalated", "renegotiating", "dismissed", "closure_confirmed"}
 NEW_ORDER_RE = re.compile(r"details to follow|new rush|coming in from", re.I)
+# a statement that a workshop has stopped; a question or a message about an order is not one
+CLOSURE_RE = re.compile(r"\b(closed|closes|closing|closure|shut|shutdown|stopped|has stopped|failed (?:an? |the |its )?(?:inspection|audit)|"
+                        r"not (?:running|operating|working)|out of action)\b", re.I)
 
 
 def days(n: int) -> str:
@@ -109,6 +113,17 @@ class Desk:
             said.append(f"{req['pieces']} pcs")
         return ", ".join(said)
 
+    def _closure_report(self, req: dict) -> Optional[str]:
+        """The workshop a message reports as stopped, if it names exactly one and asks nothing else."""
+        text = req["raw_text"]
+        if req["order_id"] or "?" in text or not CLOSURE_RE.search(text):
+            return None
+        named = [wid for wid, w in self.W.items() if w.name.lower() in text.lower()]
+        return named[0] if len(named) == 1 else None
+
+    def _batches_at(self, wid: str) -> List[dict]:
+        return [r for r in self.ledger.records if r["status"] == "committed" and r["workshop_id"] == wid]
+
     def exclusions_for(self, req: dict) -> set:
         return set(req["excluded_workshops"]) | set(self.session_excl)
 
@@ -123,6 +138,8 @@ class Desk:
         if src and wid not in req["excluded_workshops"]:
             when = (f", set at {src['time']}, after this request arrived; it applies while the request is open"
                     if self._set_later(wid, req) else "")
+            if src.get("stopped"):
+                return f"{self.name(wid)} (stopped, confirmed by {src['by']})"
             return f"{self.name(wid)} (excluded by {src['by']} in {src['source']}{when})"
         return f"{self.name(wid)} (excluded in this request)"
 
@@ -137,6 +154,18 @@ class Desk:
              "raw_text": req["raw_text"], "parsed": req, "tool_calls": [], "subtype": None, "order_id": req["order_id"],
              "recommended": None, "candidates": [], "eligibility": [], "explanation": "", "committed": None,
              "flags": [], "batch": None, "order_candidates": [], "refused_workshop": None}
+
+        # a workshop reported as stopped: flag it for the dispatcher; nothing changes until they confirm
+        reported = self._closure_report(req)
+        if reported:
+            batches = self._batches_at(reported)
+            d["subtype"] = "closure_report"
+            d["reported_workshop"] = reported
+            d["tool_calls"].append({"tool": "workshop_batches", "input": reported,
+                                    "output": {"count": len(batches), "orders": [r["order_id"] for r in batches]}})
+            d["explanation"] = (f"{self.name(reported)} is reported as stopped. Nothing changes until you confirm. Once you do, no new work "
+                                f"goes there, and {len(batches)} dispatched {'batch' if len(batches) == 1 else 'batches'} there can be re-dispatched.")
+            return d
 
         # 1. questions the data cannot answer
         if req["question_type"] == "information":
@@ -253,7 +282,8 @@ class Desk:
         for row in table:
             src = self.session_excl.get(row["workshop_id"])
             if src and row["reason"] == "excluded by request" and row["workshop_id"] not in req["excluded_workshops"]:
-                row["reason"] = f"excluded by {src['by']} in {src['source']} (this week)"
+                row["reason"] = (f"stopped, confirmed by {src['by']}" if src.get("stopped")
+                                 else f"excluded by {src['by']} in {src['source']} (this week)")
                 if self._set_later(row["workshop_id"], req):
                     row["reason"] += "; set after this request arrived"
         d["tool_calls"].append({"tool": "eligibility_table", "input": {"category": batch["category"], "pieces": batch["pieces"],
@@ -276,7 +306,8 @@ class Desk:
         if fw:
             ok, why = check_eligibility(self.W[fw], batch["category"], batch["pieces"])
             if ok and fw in self.session_excl:
-                ok, why = False, f"{self.session_excl[fw]['by']} said nothing new goes to it ({self.session_excl[fw]['source']})"
+                ok, why = False, ("it is reported as stopped" if self.session_excl[fw].get("stopped")
+                                  else f"{self.session_excl[fw]['by']} said nothing new goes to it ({self.session_excl[fw]['source']})")
             if not ok:
                 d["subtype"] = "ineligible_suggestion"
                 d["recommended"] = ests[0].workshop_id if ests else None
@@ -498,6 +529,32 @@ class Desk:
                 d["committed"] = live[d["request_id"]]
         self.refresh_all()
         return rec
+
+    def mark_stopped(self, workshop_id: str, by: str = "dispatcher", source: Optional[str] = None) -> None:
+        """A person confirmed the workshop has stopped: no new work goes there until lift_constraint()."""
+        self.session_excl[workshop_id] = {"by": by, "source": source or "dispatcher", "time": f"{datetime.now():%H:%M}",
+                                          "seq": len(self.arrival), "stopped": True}
+        self._log(source, "mark_stopped", by, self.name(workshop_id))
+        self.refresh_all()
+
+    def confirm_closure(self, request_id: str, by: str = "dispatcher") -> None:
+        d = self.decisions[request_id]
+        d["status"] = "closure_confirmed"
+        self.mark_stopped(d["reported_workshop"], by, source=request_id)
+
+    def stopped_impact(self) -> List[dict]:
+        """Batches already at a stopped workshop, each with the best place to move it now. Writes nothing."""
+        rows = []
+        stopped = [wid for wid, src in self.session_excl.items() if src.get("stopped")]
+        for wid in stopped:
+            for r in self._batches_at(wid):
+                due = r["due_date"] if isinstance(r["due_date"], date) else date.fromisoformat(r["due_date"])
+                batch = {"order_id": r["order_id"], "category": r["category"], "pieces": r["pieces"], "sent_date": TODAY, "due_date": due}
+                ranked = self.alloc.rank(batch, self.W, self.ledger.queues(), exclude=set(self.session_excl))
+                best = ranked[0]["estimate"].as_dict() if ranked else None
+                rows.append({"audit_id": r["audit_id"], "request_id": r["request_id"], "order_id": r["order_id"], "pieces": r["pieces"],
+                             "workshop_id": wid, "due_date": due.isoformat(), "best": best})
+        return rows
 
     def lift_constraint(self, workshop_id: str, by: str = "dispatcher") -> dict:
         src = self.session_excl.pop(workshop_id, None)
