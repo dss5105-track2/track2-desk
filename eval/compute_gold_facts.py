@@ -4,7 +4,7 @@
     python eval/compute_gold_facts.py --ban-scope request   # sensitivity: ban applies to R12 only
 
 Inputs:  language/requests_gold.json   (manual parses)
-         eval/gold_labels.csv          (behaviour labels; falls back to eval/draft/gold_labels_draft.csv)
+         eval/gold_labels.csv          (behaviour labels)
 Output:  eval/gold_facts[_<scope>].csv  one row per request with candidates, recommendation and numbers
 
 Rules (eval/protocol.md):
@@ -32,7 +32,7 @@ from kernel.orders import load_orders, state_checks, TODAY  # noqa: E402
 
 
 def load_labels():
-    for p in (ROOT / "eval" / "gold_labels.csv", ROOT / "eval" / "draft" / "gold_labels_draft.csv"):
+    for p in (ROOT / "eval" / "gold_labels.csv",):
         if p.exists():
             with open(p, encoding="utf-8") as f:
                 return {r["request_id"]: r for r in csv.DictReader(f)}, p
@@ -95,8 +95,7 @@ def main():
                 session_excl[wid] = (r["requester"], rid)
         rows.append(row)
 
-    # written next to the draft labels: it contains the expected behaviour for every request,
-    # so it must stay out of sight until everyone has finished independent classification
+    # written next to the labels; generated, so git-ignored
     outdir = label_path.parent
     out = outdir / f"gold_facts{'' if args.ban_scope == 'session' else '_' + args.ban_scope}.csv"
     with open(out, "w", newline="", encoding="utf-8") as f:

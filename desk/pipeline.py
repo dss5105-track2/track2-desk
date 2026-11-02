@@ -19,7 +19,7 @@ For every chat line, in timestamp order:
   5. explain         -> text built only from tool outputs; every number is checked against them
   6. confirm+commit  -> only a human confirmation changes the ledger
 Outputs go to eval/runs/<timestamp>/ (git-ignored): decisions.jsonl, audit.json, transcript.md.
-If eval/draft/ gold files exist, the run is scored against them. That comparison is a development
+The run is scored against eval/gold_labels.csv. That comparison is a development
 check on the official 30, not the held-out evaluation.
 """
 from __future__ import annotations
@@ -581,9 +581,8 @@ def inbox_lines() -> List[str]:
 
 
 def load_gold():
-    draft = ROOT / "eval" / "draft"
-    labels = draft / "gold_labels_draft.csv"
-    facts = draft / "gold_facts.csv"
+    labels = ROOT / "eval" / "gold_labels.csv"
+    facts = ROOT / "eval" / "gold_facts.csv"
     if not labels.exists():
         return None
     with open(labels, encoding="utf-8") as f:
@@ -596,7 +595,7 @@ def load_gold():
 
 
 def score(decisions: Dict[str, dict]) -> dict:
-    """Development check against the draft gold. Not the held-out evaluation."""
+    """Development check against the frozen labels. Not the held-out evaluation."""
     gold = load_gold()
     if not gold:
         return {"available": False, "rows": []}
@@ -677,7 +676,7 @@ def main():
               f"{g.get('gold_behaviour', ''):<18} {g.get('gold_recommended') or '-':<4}{wmark:<3} "
               f"{'ok' if d['number_check']['ok'] else 'NO':<5} {d['committed'] or ''}")
     if s["available"]:
-        print(f"\nbehaviour matches draft gold: {s['behaviour']}/{s['n']}")
+        print(f"\nbehaviour matches the frozen labels: {s['behaviour']}/{s['n']}")
         print(f"recommended workshop matches (where both have one): {s['workshop']}/{s['workshop_n']}")
         print(f"explanations with every number traced to a tool output: {s['numbers']}/{s['n']}")
     print(f"ledger writes: {len(desk.ledger.records)}  session constraints: {desk.session_excl}")

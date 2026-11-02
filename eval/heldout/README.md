@@ -1,37 +1,36 @@
-# 留出集（held-out inbox）
+# Held-out inbox
 
-43 条组员手写的群消息（2026-04-01 早上，单独一本账），答案在 `gold_labels.csv`。冻结信息见 `FROZEN.txt`。
+43 chat messages written by team members, with answers frozen before the system first saw them. This is the only clean language test; the official 30 and the 38-message challenge set were used in development.
 
-## 怎么来的
+## How it was built
 
-- 写手：吴杰、吴若晗、屈妍玥、张锦若，每人按一张骨架表写 11 条，共 44 条。写手不改提示词、解析器和 `llm/` 代码。
-- 标注：每条由两位没写它的组员独立标注，不用 AI。
-- 定稿：两位标注人和骨架预期三者一致的 32 条直接定稿；不一致的 12 条按全组已定的标注规则定稿，其中 H24 照消息原文判为 clarify，H43 因原文和骨架意思对不上而剔除。冻结前的分歧率 12 / 44 = 27.3%。
-- 备注：H36 和官方 R11 几乎相同，报告里单独标注；H41 两位标注人都漏看了前面 H04 的长期约束。
+- **Writing.** Wu Jie, Wu Ruohan, Qu Yanyue and Zhang Jinruo each wrote 11 messages from a scenario skeleton (44 in all). Writers did not touch the prompt, parser or `llm/`. Claude drafted the skeletons.
+- **Labelling.** Two members who had not written a message labelled it independently, without AI.
+- **Settling.** 32 of 44 agreed at once with the skeleton's intent. The 12 disagreements (27.3%) were settled under the team's written rules; Claude proposed the resolutions and the team accepted them. H24 was judged on its wording, and H43 was dropped because its text did not match its skeleton.
+- **Exposure.** Before the first run Claude had seen the messages, through the annotation sheets. The code under test (`3e9f2ee`, 7 October) predates the messages, and nothing changed before the first run.
 
-## 第一次运行（李岩、许佩瑶）
+## Results: right response type
 
-被测系统版本是 `3e9f2ee`（2026-10-07 合并），早于这些消息的写作时间。这次冻结只新增本目录，没有改动任何系统代码，所以在冻结后的 `main` 上运行等同于在 `3e9f2ee` 上运行。
+| Run | Status | Rules | GPT-5 mini, 3 runs | Record |
+|---|---|---|---|---|
+| First | **Clean** | 86.0% (37/43) | **89.1%** (115/129) | [`first_run.md`](first_run.md) |
+| Reproduction by Li Yan | Clean, same code | 86.0%, identical line by line | 88.4% (114/129) | [`reproduce_liyan/`](reproduce_liyan/REPRODUCE.md) |
+| Second | **Not clean: fixes followed the first run's errors** | 88.4% (38/43) | 92.2% (119/129) | [`second_run.md`](second_run.md) |
 
-在仓库根目录：
+The team target was 90%. The first run missed it, and that figure stands.
+
+## Limitation
+
+The frozen answers do not list standing exclusions in force, so the decision check does not test whether they were honoured, and can mark honouring one as wrong (H35, H38). Response type is the main metric.
+
+## Reproduce
+
+From the repository root, on `main`:
 
 ```bash
-python eval/run_language_eval.py --inbox eval/heldout/requests.txt --labels eval/heldout/gold_labels.csv --parses "" --tag heldout43 --parser rules --objective use_slack --out eval/heldout/first_run
+python eval/heldout/reproduce_heldout.py --name yourname
 ```
 
-```bash
-python eval/run_language_eval.py --inbox eval/heldout/requests.txt --labels eval/heldout/gold_labels.csv --parses "" --tag heldout43 --parser llm --model gpt-5-mini --runs 3 --objective use_slack --env .env --out eval/heldout/first_run
-```
+This runs the recorded commit in a temporary worktree and compares the result with the record. Add `--llm` to run GPT-5 mini too (about $0.17, needs `.env`).
 
-- 留出集没有手工解析，所以只报行为、决策、解释三项，不报字段提取。GPT-5 mini 跑 3 遍约 0.2 美元。
-- 跑完马上把两组分数和当时的 commit 号写进 `first_run.md` 并提交。**这之后**才能看错误明细、才能改系统。
-- 之后再改系统，报告里写“第一次是 X，改了什么之后是 Y”，第一次的数不删。
-- 不管过没过 90% 的线，都如实写进报告。
-
-## 第二次运行（修改之后）
-
-记录在 `second_run.md`，结果在 `second_run/`。修改参考了首轮的错误，所以不是干净测试；干净的数字仍是首轮。
-
-## 局限
-
-答案表里只有类别、子类和订单号；约束和之前生效的排除没有逐条填，所以“决策合理”一项不检查长期约束是否被遵守。行为类别是主要指标。
+The run records are in Chinese and kept as written.

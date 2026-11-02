@@ -1,142 +1,148 @@
-# SweaterCo 外协调度台 · DSS5105 Capstone Track 2
+# Subcontracting Desk
 
-把群聊里的外发请求变成可审计的派单决策：解析请求，检查车间能不能做、接不接得下、允不允许接，按目标给出带交期估算的推荐，人确认后写入账本和审计记录；没有按时方案时说清楚晚几天和有哪些选项。
+**DSS5105 Capstone · Track 2: The Quick-Response Subcontracting Desk · Group 12**
 
-团队：屈妍玥 · 张锦若 · 吴杰 · 李岩 · 吴若晗 · 许佩瑶
+Today, sending a batch to an outside workshop is one unchecked message in a group chat. The desk reads that message, checks in code whether each workshop can make the product, can take it now and is allowed to, recommends one with two return dates and the reason, and records what the dispatcher confirms.
 
-> **状态：第一周（2026-09-14）。** 仓库内容由 Claude 起草。已在 Python 3.12 上跑通全部测试、官方模拟器、基线对比、压力场景和调度员界面，结果见 [`docs/results_week1.md`](docs/results_week1.md)。
->
-> **2026-10-04：数据已换成老师的 v3。** 群聊 9 条请求改了订单和日期（R04 R06 R07 R16 R17 R22 R23 R26 R27），模拟器的 `--shock` 结果要按 10 个 seed 重跑，详见 [`data/CHANGELOG.md`](data/CHANGELOG.md)。`orders.csv`、`workshops.csv` 和不加 `--shock` 的模拟器结果都没变。`docs/results_week1.md` 里的 shock 数字和 30 条请求结果是 v2 的，已过时。全组已定：30 条请求按时间顺序处理，前面确认派出的单子占用后面的产能。
->
-> **2026-10-05：第二轮（分支 `claude/round2`）。** 2026-10-07 起：30 条标签已定稿（`eval/gold_labels.csv`），语言层默认用 GPT-5 mini。第二轮的全部结果、汇报稿和失败案例清单在 [`round2/`](round2/README.md)。 主目标定为最少迟交。改了五处：迟交目标换成“先保返工后仍按时，再选专做这一类的车间，最后才看谁最快”的规则；每个估算给两个日期（预计、返工后）；LLM 提取的每个值由代码对照原文核对；语言层有了分项评估脚本；调度员界面按“下一步做什么”分组并支持一键确认。改了什么、实测结果和已知问题见 [`docs/round2_changes.md`](docs/round2_changes.md)。
+- **Live app:** <https://track2-desk-group12.streamlit.app> (public, no sign-in, works on a phone)
+- **Team:** Qu Yanyue, Zhang Jinruo, Wu Jie, Li Yan, Wu Ruohan, Xu Peiyao
 
-## 打开调度员界面
+## Run it locally
+
+Tested on Python 3.12.
+
+```bash
+git clone https://github.com/dss5105-track2/track2-desk.git
+```
+
+```bash
+cd track2-desk
+```
 
 ```bash
 python -m pip install -r requirements.txt
+```
+
+```bash
 streamlit run app/streamlit_app.py
 ```
 
-浏览器会打开 http://localhost:8501 。点左侧 **Load morning inbox** 收到 4 月 1 日的 30 条群聊，然后逐条点开处理。**系统只推荐，确认按钮按下之前不会派出任何一单。** 页面说明和演示脚本见 [`docs/ui_guide.md`](docs/ui_guide.md)。
+The browser opens <http://localhost:8501>. Click **Load morning inbox** to receive the 30 chat messages of 1 April, or type a message in the box at the top of **Dispatch**.
 
-## 快速开始
+No API key is needed: without one the desk uses its rule-based parser and the GPT-5 mini option stays disabled.
 
-需要 Python 3.9 或更新版本，内核只用标准库。
+### Optional: use GPT-5 mini
 
-```bash
-python -m pip install -r requirements.txt
-python tests/test_kernel.py
-python harness/simulate.py
-python harness/run_baselines.py
-python harness/run_baselines.py --shock
-python harness/run_seeds.py --seeds 5105 1 2 3 4 5
-python eval/compute_gold_facts.py
-python llm/llm_client.py
-```
+Copy `.env.example` to `.env` and set `OPENAI_API_KEY`. `.env` is git-ignored; never commit a key. Reading one message costs about $0.001, and `DESK_LLM_BUDGET_USD` (default 2) is a hard stop per process.
 
-| 命令 | 期望结果 |
-|---|---|
-| `tests/test_kernel.py` | 全部 PASS，`failed: 0`；`tests/test_desk.py` 和 `tests/test_round2.py` 同样直接运行 |
-| `harness/simulate.py` | 官方三个 baseline 表 |
-| `harness/run_baselines.py` | 官方 baseline + 简单规则分配器（earliest_finish）+ 五个目标配置，写入 `results/`；加 `--shock` 时默认跑 seed 5105 到 5114 取平均，并给出正常跑到 shock 的变化量 |
-| `harness/run_seeds.py` | 每个策略迟交率与 P90 的最小、平均、最大值 |
-| `eval/compute_gold_facts.py` | 按协议重放 30 条请求的推荐与数字，写入标签文件所在目录；定稿前是 `eval/draft/`，独立分类前不要打开 |
-| `llm/llm_client.py` | 规则回退解析器对 30 条请求的解析结果 |
-
-### 端到端跑一遍早上的 30 条群聊
+### Check it works
 
 ```bash
-python desk/pipeline.py
-python desk/pipeline.py --only R21
-python desk/pipeline.py --llm
+python -m pytest -q
 ```
 
-| 命令 | 作用 |
+59 tests should pass.
+
+| Command | What it does |
 |---|---|
-| `desk/pipeline.py` | 用规则解析器按时间顺序处理 30 条：解析 → 订单状态检查 → 判定派单、追问、拒绝或无法回答 → 内核算交期与排序 → 用工具输出生成解释并核查数字 → 派单请求自动确认后写账本。不联网、不花钱 |
-| `--only R21` | 只看一条请求的完整决策和工具调用链 |
-| `--llm` | 改用 LLM 解析（默认 GPT-5 mini），需要 `.env`，会产生费用 |
+| `python harness/simulate.py` | The shared simulator with its three baselines |
+| `python harness/run_baselines.py` | Baselines, the simple rule and our settings; add `--shock` for the closure scenario |
+| `python desk/pipeline.py` | Processes the 30 messages in order; `--only R21` shows one decision and its tool calls |
+| `python eval/run_language_eval.py --labels eval/gold_labels.csv` | Scores the 30 official messages; `--parser llm --runs 3` uses the model and costs money |
 
-输出写入 `eval/runs/<时间>/`，该目录被 git 忽略：`transcript.md` 是人能读的逐条记录，`decisions.jsonl` 是结构化决策，`audit.json` 是账本审计记录。如果 `eval/draft/` 里有标准答案草稿，运行结束会打印对照分数。**独立分类交齐之前不要看这些输出，里面有答案。**
+## How it works
 
-**引用任何模拟器数字时，同时写出命令、seed 和 commit。** `run_baselines.py` 会把 commit 写进 CSV。
+```mermaid
+flowchart LR
+    CHAT[Chat message] --> LANG[Language layer<br/>GPT-5 mini or rules<br/>+ code check against the text]
+    LANG --> KERNEL[Kernel, no LLM<br/>eligibility, two return dates,<br/>ranking by objective]
+    KERNEL --> EXPLAIN[Explain and check<br/>every number traced<br/>to a tool output]
+    EXPLAIN --> HUMAN[Dispatcher<br/>confirm, change or escalate]
+    HUMAN --> LEDGER[(Ledger and<br/>audit record)]
+    SIM[[Shared simulator]] -.-> KERNEL
+```
 
-## LLM 账号、费用与密钥
+- **The model only reads.** Dates, queues and comparisons come from code tools, specified in [`docs/tool_spec.md`](docs/tool_spec.md).
+- **Four replies:** dispatch, ask back, refuse with a reason and an alternative, or say the data cannot answer.
+- **Nothing is booked until the dispatcher confirms.**
+- **The objective is a setting.** The interface offers three:
 
-语言层用 OpenAI 的 GPT-5 mini 从群聊里提取字段，其余一律由 `kernel/` 计算。不配置 LLM 时系统自动使用规则解析器，所有测试和模拟器实验都不需要密钥。
-
-**账号。** 程序通过 OpenAI API 调用模型，需要在 [platform.openai.com](https://platform.openai.com) 注册账号、充值并生成 API key。ChatGPT 的订阅不包含 API 额度，不能给程序调用。建议由 LLM 基础设施负责人吴若晗注册团队账号并充值，给每位需要调用的组员各生成一把 key，便于单独吊销。
-
-**模型。** 默认 `gpt-5-mini`（2026-10-07 全组定）：第二轮实测在官方 30 条和 38 条新消息上行为和决策全对，每 30 条约 3.6 美分。`gpt-5-nano` 便宜约 4 倍，但有一种说法读不对；想用它就在 `.env` 里写 `DESK_LLM_MODEL=gpt-5-nano`。价格来自 OpenAI 官方价目表，2026-09-13 核对：
-
-| 模型 | 输入 $/百万 token | 输出 $/百万 token |
+| Setting | Role | How it ranks |
 |---|---|---|
-| gpt-5-nano | 0.05 | 0.40 |
-| gpt-5-mini | 0.25 | 2.00 |
-| gpt-5 | 1.25 | 10.00 |
+| `use_slack` | Primary: fewest late batches | Keep shops on time even if reworked; prefer the specialist; take the latest safe finish so fast shops stay free |
+| `defects` | Other objective | Defect rate weighted equally with lateness |
+| `hybrid` | Weighted mix | Late 1.0, finish 0.3, defects 0.25, load 0.5, normalised within the candidates |
 
-GPT-5 系列会先生成推理 token，按输出价计费。`DESK_LLM_REASONING_EFFORT` 默认设为 `low`，控制这部分开销。
+`lateness`, `fairness`, `cost` and two round-1 settings remain in `kernel/allocator.py` for the simulator and the command line.
 
-**预算。** 下面是估算，按每次提取约 1,500 个输入 token、800 个输出 token 算，输出里含推理 token。真实花费以运行后打印的数字为准。
+## Results
 
-| 用量 | 估算花费 |
-|---|---|
-| 每条请求 | 约 0.0004 美元 |
-| 30 条官方请求加 44 条留出集，跑一轮 | 约 0.03 美元 |
-| 开发期反复跑一百轮 | 约 3 美元 |
+### Allocation: shared simulator
 
-建议在 OpenAI 后台给项目设 **每月 10 美元的支出上限**，程序里再用 `DESK_LLM_BUDGET_USD` 做单次运行的保险。
+120 official orders, seeds 5105–5114, simulator unchanged. Reproduce with `experiments/scripts/exp_round2.py`; results are in [`experiments/allocator_results/`](experiments/allocator_results/).
 
-**密钥放哪里。** 只放在本机的 `.env` 文件里，这个文件已被 `.gitignore` 排除。
+| Policy | % late | % late, shock | % defective pieces | Cost | Mean days |
+|---|---|---|---|---|---|
+| random (baseline) | 34.2 | 38.2 | 5.6 | 111,780 | 21.9 |
+| greedy_biggest (baseline) | 84.3 | 84.9 | 5.3 | 108,430 | 50.3 |
+| cheapest (baseline) | 91.8 | 91.8 | 8.2 | 85,960 | 106.2 |
+| simple rule: earliest finish | 1.67 | 1.92 | 7.2 | 115,567 | 8.3 |
+| **use_slack (primary)** | **1.00** | **1.67** | 6.8 | 105,503 | 14.0 |
+| defects | 28.67 | 31.00 | 5.1 | 110,396 | 21.1 |
+| hybrid | 4.33 | 5.50 | 6.1 | 111,238 | 10.1 |
 
-```bash
-cp .env.example .env
+On 100 perturbed order books not used for tuning, `use_slack` is 0.79% late against 1.68% for the simple rule, better on 79 sets and worse on 2.
+
+**Where a baseline still wins:** `cheapest` costs less; `random` and `greedy_biggest` send fewer defective pieces; the simple rule is about six days faster.
+
+### Language: messages
+
+| Set | Messages | Status | GPT-5 mini, right response type |
+|---|---|---|---|
+| Official | 30 | Used in development | 100% |
+| Challenge | 38 | AI-written, used in development | 100% |
+| **Held-out, first run** | 43 | **Clean: answers frozen before the system saw them** | **89.1%** (115/129, 3 runs) |
+| Held-out, second run | 43 | **Not clean: fixes followed the first run's errors** | 92.2% (119/129, 3 runs) |
+
+The first-run figure missed our 90% target and is the one to quote. The rule-based parser scored 86.0% on the first run and 88.4% on the second. Li Yan reproduced the first run independently: the rule-based run matched line by line, and GPT-5 mini scored 88.4%, within normal model variation.
+
+Records: [`first_run.md`](eval/heldout/first_run.md), [`second_run.md`](eval/heldout/second_run.md), [`reproduce_liyan/`](eval/heldout/reproduce_liyan/REPRODUCE.md). Known failures: [`experiments/failure_cases.md`](experiments/failure_cases.md).
+
+## Known limitations
+
+- **Closed workshops are not detected.** The kernel is not told about a closure and does not notice a queue that has stopped. Standing exclusions are set by people, in chat.
+- **Seven-day calendar.** Estimates assume a seven-day week, as the simulator does. A Sunday-closed variant exists only as an experiment (`experiments/scripts/exp_sunday.py`): the simple rule rises to 3.67% late.
+- **One message, two problems.** Messages that both name an ineligible workshop and repeat a dispatch (H41, H42) get "already sent?" where the labels say refuse. The labelling rules did not set an order, and this is not fixed.
+- **Status questions** about a customer with several orders (H03) are declined where the labels say ask back.
+- **The ledger lives in memory.** It is lost when the session ends unless `audit.json` is downloaded, and it suits one dispatcher.
+- **The decision check under-scores the system.** The frozen answers omit standing exclusions, so honouring one can be marked wrong (H35, H38).
+
+## Repository layout
+
+```
+app/           Streamlit dispatcher interface
+desk/          The pipeline: parse, check, decide, explain
+kernel/        Deterministic core, no LLM: register, orders, estimator, allocator, ledger
+llm/           GPT-5 mini client, rule-based parser, check of values against the text
+language/      Request schema and hand-made parses of the 30 messages
+data/          Official data, unchanged
+harness/       Shared simulator (unchanged) and baseline runners
+scenarios/     Stress scenarios: tight due dates, accessory surge
+eval/          Protocol, labelling guide, labels, scoring scripts, independent decision checker
+eval/heldout/  Frozen held-out inbox and the records of each run
+experiments/   Scripts and results behind the numbers above, challenge set, failure cases
+docs/          Tool specification, architecture, interface guide, user test tasks, factory primer, round-2 history
+tests/         59 automated tests
 ```
 
-Windows PowerShell 用：
+Some working documents are in Chinese, including the held-out run records, the interface guide and the evaluation protocol.
 
-```bash
-Copy-Item .env.example .env
-```
+## Use of AI
 
-然后编辑 `.env`，把 `OPENAI_API_KEY` 换成自己的 key。验证：
+We used AI tools throughout, and report them because they affect how to read the results.
 
-```bash
-python llm/llm_client.py --llm --limit 3
-```
+- **Claude (Anthropic)** drafted much of the code, documents and experiments under the team's direction. It also drafted the skeletons for the held-out messages and proposed how to settle labelling disagreements, which the team reviewed and accepted.
+- **Team members** wrote and double-labelled the held-out messages, and voted on the labels of the official 30.
+- **GPT-5 mini** is part of the product, reading chat messages at run time. Its 38-message challenge set is AI-written, so we do not treat it as a clean test.
 
-输出末尾会显示本次调用次数和花费。key 一旦出现在聊天、issue、截图或 commit 里，立即到控制台吊销并重新生成。
-
-## 目录
-
-```
-data/                官方数据，原样，永不修改
-harness/             simulate.py 原样；run_baselines.py；run_seeds.py
-kernel/              确定性内核，零 LLM
-  register.py        车间登记册与资格三问
-  orders.py          订单表与状态交叉检查
-  estimator.py       交期估算（队列 + 加工 + 返工期望 + 运输）与拆单估算
-  allocator.py       目标即配置的分配器；简单规则分配器 earliest_finish
-  ledger.py          队列账本与审计记录
-language/            结构化请求 schema 与 30 条手工解析
-llm/                 LLM 客户端接口与规则回退解析器
-eval/                请求处理协议、标注指南、留出集矩阵、标准答案生成脚本
-  draft/             标注草稿，全员独立分类前不要打开
-scenarios/           压力场景（交期压缩、配件激增、指定车间停工）
-ui/wireframes/       调度员界面线框
-docs/                工具规格、架构、主目标备忘、行业入门
-tests/               内核验收测试
-```
-
-## 设计约束
-
-- LLM 不做算术。队列、估算、排序、成本全部来自 `kernel/`。
-- 解释中的每个数字必须能对应某次工具调用的输出。
-- 只有人确认后才写账本；拒绝、追问、无按时方案的请求不占用产能。
-- 官方数据与模拟器不改；扩展场景的结果与官方结果分表报告。
-
-详见 [`eval/protocol.md`](eval/protocol.md)、[`docs/tool_spec.md`](docs/tool_spec.md)、[`docs/architecture_v0.md`](docs/architecture_v0.md)、[`CONTRIBUTING.md`](CONTRIBUTING.md)。
-
-## 第一周进度
-
-见 [`docs/week1_status.md`](docs/week1_status.md)。
+Individual contributions are set out in `Teams.pdf` in the final submission.

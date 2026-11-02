@@ -2,7 +2,7 @@
 
 ## 流程
 
-1. **独立分类（全员，周二晚前）。** 每人只看 `data/dispatch_requests.txt`、`data/orders.csv`、`data/workshops.csv` 和 `eval/protocol.md`，把 30 条分进官方四类，并写内部子类。**不看任何人的结果，也不要打开 `eval/draft/`。** 交给张锦若。
+1. **独立分类（全员）。** 每人只看 `data/dispatch_requests.txt`、`data/orders.csv`、`data/workshops.csv` 和 `eval/protocol.md`，把 30 条分进官方四类，并写内部子类。**不看任何人的结果，也不要打开 `eval/draft/`。** 交给张锦若。
 2. **统计分歧（张锦若，周三会前）。** 每条算六人一致率；一致率低于 5/6 的列入周三讨论。
 3. **修订指南（周三会上）。** 讨论结论写进本文件"裁定记录"，然后冻结。
 4. **双人正式标注（张锦若、李岩，周四）。** 按冻结指南各自填写 `gold_labels.csv` 的 A 列、B 列，晚上比对，记录 Cohen's kappa。
