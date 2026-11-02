@@ -131,11 +131,11 @@ scenarios/     Stress scenarios: tight due dates, accessory surge
 eval/          Protocol, labelling guide, labels, scoring scripts, independent decision checker
 eval/heldout/  Frozen held-out inbox and the records of each run
 experiments/   Scripts and results behind the numbers above, challenge set, failure cases
-docs/          Tool specification, architecture, interface guide, user test tasks, round-2 changes, factory primer
+docs/          Tool specification, architecture, interface guide, user test tasks, factory primer, round-2 history
 tests/         59 automated tests
 ```
 
-Some working documents, including the held-out run records, are in Chinese.
+Some working documents are in Chinese, including the held-out run records, the interface guide and the evaluation protocol.
 
 ## Use of AI
 

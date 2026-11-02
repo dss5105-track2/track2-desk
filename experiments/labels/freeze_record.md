@@ -1,4 +1,4 @@
-# 30 条标签定稿记录
+# 30 条标签freeze_record
 
 **2026-10-07 定稿。** 定稿文件：`gold_labels_v3_final.csv`（本文件夹）和仓库副本里的 `eval/gold_labels.csv`（内容相同，后者无 BOM，供 `eval/compute_gold_facts.py` 读取）。提议稿 `gold_labels_v3_proposed.csv` 保留不删，作为开发过程的记录。
 
@@ -18,7 +18,7 @@
 | R24 | Little Loom does lovely work — ORD-015 to them? | 追问 2、派单 2、拒绝 2 | **拒绝** | Little Loom 只做配件，ORD-015 是背心。替代：Nimble Needle，4 月 5 日，按时 |
 | R28 | Sending ORD-002 outside — 1000 crewneck sweaters. Who has room this week? Due Mar 29. | 派单（不能按时）4、追问 1、未填 1 | **派单（不能按时）** | 交期已过。最早 GiantWeave 4 月 11 日，晚 13 天。要说明做不到，给选项，不能悄悄派掉 |
 
-R08、R14、R24 用的是同一条规则（`标注规则_v3.md` 的 F1、F2）：
+R08、R14、R24 用的是同一条规则（`labelling_rules_v3.md` 的 F1、F2）：
 
 > 消息点名一家车间，而这家车间接不了（品类不对、停业、超批量），就是**拒绝**，并给替代或说明没有替代。问句也一样。消息里给了单号，件数和交期就从订单表取，不算缺信息。
 

@@ -3,13 +3,13 @@
     python labels/make_labels.py
 
 This script does NOT import desk/ or kernel/. It reads the three data files directly, applies the
-labelling rules in 标注规则_v3.md to the reading of each message recorded in READING below, and
+labelling rules in labelling_rules_v3.md to the reading of each message recorded in READING below, and
 recomputes every number (eligibility, estimates, dates) from the formula in the protocol:
 
     finish days = queue + pieces/capacity + 0.5 * defect_rate * pieces/capacity + pickup_lead_days
     promised    = 2026-04-01 + round(finish days)          on time  <=>  promised <= due date
 
-Outputs (same folder): gold_labels_v3_proposed.csv, 分类_Claude.csv (same columns as the classmates'
+Outputs (same folder): gold_labels_v3_proposed.csv, classification_claude.csv (same columns as the classmates'
 template), facts_independent.json.
 """
 from __future__ import annotations
@@ -43,7 +43,7 @@ for line in open(DATA / "dispatch_requests.txt", encoding="utf-8"):
 #   pref       fastest | cheapest_on_time | lowest_defect | split | None
 #   kind       the instructor's seven kinds (data_dictionary.md)
 #   behaviour / subtype / also   label, and a second subtype that is also acceptable
-#   rule       which rule in 标注规则_v3.md decides it
+#   rule       which rule in labelling_rules_v3.md decides it
 # ----------------------------------------------------------------------------------------------
 READING = {
     "R01": dict(order=None, kind="missing", behaviour="clarify", subtype="missing_fields", also="ambiguous_reference", rule="C2",
@@ -270,7 +270,7 @@ if __name__ == "__main__":
 
     with open(HERE / "gold_labels_v3_proposed.csv", "w", newline="", encoding="utf-8-sig") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0].keys())); w.writeheader(); w.writerows(rows)
-    with open(HERE / "分类_Claude.csv", "w", newline="", encoding="utf-8-sig") as f:
+    with open(HERE / "classification_claude.csv", "w", newline="", encoding="utf-8-sig") as f:
         w = csv.writer(f, quoting=csv.QUOTE_ALL)
         w.writerow(["编号", "时间", "发送人", "原文", "官方类别", "内部子类", "依据", "把握", "填写人"]); w.writerows(tmpl)
     (HERE / "facts_independent.json").write_text(json.dumps({"morning": morning, "in_order": seq}, ensure_ascii=False, indent=1), encoding="utf-8")

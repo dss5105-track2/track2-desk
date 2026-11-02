@@ -7,7 +7,7 @@ This is NOT the team's held-out set (eval/heldout_matrix.md): that one is writte
 not touch the system. This set is AI-written and is reported separately, labelled as such.
 
 Writes (same folder): challenge_requests.txt, challenge_labels.csv, challenge_parses.json.
-Facts are computed by labels/make_labels.py (independent of the system); labels follow 标注规则_v3.md.
+Facts are computed by labels/make_labels.py (independent of the system); labels follow labelling_rules_v3.md.
 Messages are processed in time order on the morning of 2026-04-01, with their own ledger.
 """
 from __future__ import annotations
