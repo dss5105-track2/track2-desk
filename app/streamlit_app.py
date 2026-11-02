@@ -401,8 +401,19 @@ def render_card(d: dict) -> None:
 
 
 with tab_desk:
+    # the way in for a new chat message: first thing on the page, not below a long inbox
+    with st.form("new_message", clear_on_submit=True, border=True):
+        st.markdown("**💬 New chat message**")
+        fc1, fc2, fc3 = st.columns([1, 5, 1], vertical_alignment="center")
+        sender = fc1.selectbox("From", SENDERS, label_visibility="collapsed")
+        text = fc2.text_input("Message", placeholder="Type a request as it would appear in the group chat, e.g. ORD-066 — 1000 polo shirts, due Apr 20", label_visibility="collapsed")
+        if fc3.form_submit_button("Send", type="primary", width="stretch") and text.strip():
+            nd = desk.new_message(sender, text.strip())
+            st.session_state.selected = nd["request_id"]
+            st.session_state.group_pending = group_of(nd)
+            st.rerun()
     if not desk.decisions:
-        st.info("Click **Load morning inbox** in the sidebar to receive the 30 chat messages from 1 April, or type a new message below.")
+        st.info("Type a message above, or click **Load morning inbox** in the sidebar to receive the 30 chat messages from 1 April.")
     desk.refresh_all()
     decisions = list(desk.decisions.values())
     counts = {k: sum(1 for d in decisions if d["status"] in statuses) for k, _, statuses in GROUPS}
@@ -464,17 +475,6 @@ with tab_desk:
         else:
             st.caption("Nothing here.")
             st.session_state.selected = None
-
-        with st.form("new_message", clear_on_submit=True):
-            st.markdown("**New message**")
-            fc1, fc2 = st.columns([1, 3])
-            sender = fc1.selectbox("From", SENDERS, label_visibility="collapsed")
-            text = fc2.text_input("Message", placeholder="e.g. ORD-066 — 1000 polo shirts, due Apr 20", label_visibility="collapsed")
-            if st.form_submit_button("Send to desk") and text.strip():
-                nd = desk.new_message(sender, text.strip())
-                st.session_state.selected = nd["request_id"]
-                st.session_state.group_pending = group_of(nd)
-                st.rerun()
 
     with right:
         rid = st.session_state.selected
