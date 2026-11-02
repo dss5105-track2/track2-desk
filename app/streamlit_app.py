@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import time
 from datetime import date
 from pathlib import Path
 
@@ -412,7 +413,7 @@ with tab_desk:
             nd = desk.new_message(sender, text.strip())
             st.session_state.selected = nd["request_id"]
             st.session_state.group_pending = group_of(nd)
-            st.session_state.scroll_to_card = True
+            st.session_state.scroll_until = time.time() + 3
             st.rerun()
     if not desk.decisions:
         st.info("Type a message above, or click **Load morning inbox** in the sidebar to receive the 30 chat messages from 1 April.")
@@ -488,9 +489,11 @@ with tab_desk:
         else:
             st.markdown('<div id="answer-card"></div>', unsafe_allow_html=True)
             render_card(desk.decisions[rid])
-            if st.session_state.pop("scroll_to_card", False):   # a message was just sent: bring its answer into view (on a phone the card is below the inbox); repeated because the page is still laying out
-                components.html("<script>[150, 600, 1200].forEach(ms => setTimeout(() => window.parent.document.getElementById('answer-card')"
-                                "?.scrollIntoView({block: 'start'}), ms))</script>", height=0)
+            # a message was just sent: bring its answer into view (on a phone the card is below the inbox).
+            # Kept for a few seconds because switching group reruns the app; the id makes each message's script new, or the browser would not run it again.
+            if time.time() < st.session_state.get("scroll_until", 0):
+                components.html(f"<!-- {rid} -->" + """<script>window.parent.eval("[150, 600, 1200].forEach(ms => setTimeout(() => "
+                                + "document.getElementById('answer-card')?.scrollIntoView({block: 'start'}), ms))")</script>""", height=0)
 
 
 # ------------------------------------------------------------------ workshops
