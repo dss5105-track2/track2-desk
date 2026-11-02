@@ -22,6 +22,7 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -411,6 +412,7 @@ with tab_desk:
             nd = desk.new_message(sender, text.strip())
             st.session_state.selected = nd["request_id"]
             st.session_state.group_pending = group_of(nd)
+            st.session_state.scroll_to_card = True
             st.rerun()
     if not desk.decisions:
         st.info("Type a message above, or click **Load morning inbox** in the sidebar to receive the 30 chat messages from 1 April.")
@@ -457,13 +459,13 @@ with tab_desk:
             if held:
                 n_tight = sum(1 for h in held if h["reason"].startswith("tight"))
                 st.caption(("Held back for you: " if n_go else "Decide these one by one: ")
-                           + f"{n_tight} tight (a rework would make them late), listed first"
+                           + f"{n_tight} tight (a rework would make them late), listed ahead of the other inbox messages"
                            + (f", and {len(held) - n_tight} that would take a workshop a tight one needs." if len(held) > n_tight else "."))
         inbox = pd.DataFrame([inbox_row(d) for d in view])
         if len(inbox):
             ev = st.dataframe(inbox, hide_index=True, width="stretch", on_select="rerun", selection_mode="single-row",
-                              # the key changes with every ledger write or human action, so a stale row selection cannot outlive the list it pointed into
-                              key=f"inbox_{group}_{len(desk.ledger.records)}_{len(desk.actions)}", height=min(38 + 35 * len(inbox), 600),
+                              # the key changes with every new message, ledger write or human action, so a stale row selection cannot outlive the list it pointed into
+                              key=f"inbox_{group}_{len(desk.decisions)}_{len(desk.ledger.records)}_{len(desk.actions)}", height=min(38 + 35 * len(inbox), 600),
                               column_config={"ID": st.column_config.TextColumn("ID", width=48),
                                              "Order": st.column_config.TextColumn("Order", width=76),
                                              "Decision": st.column_config.TextColumn("Decision", width=178),
@@ -484,7 +486,11 @@ with tab_desk:
         if not rid or rid not in desk.decisions:
             st.caption("Select a message to see the recommendation.")
         else:
+            st.markdown('<div id="answer-card"></div>', unsafe_allow_html=True)
             render_card(desk.decisions[rid])
+            if st.session_state.pop("scroll_to_card", False):   # a message was just sent: bring its answer into view (on a phone the card is below the inbox); repeated because the page is still laying out
+                components.html("<script>[150, 600, 1200].forEach(ms => setTimeout(() => window.parent.document.getElementById('answer-card')"
+                                "?.scrollIntoView({block: 'start'}), ms))</script>", height=0)
 
 
 # ------------------------------------------------------------------ workshops
