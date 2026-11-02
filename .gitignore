@@ -11,3 +11,6 @@ eval/runs/
 .DS_Store
 Thumbs.db
 ~$*.docx
+eval/gold_facts.csv
+eval/gold_facts_request.csv
+experiments/scripts/_data/

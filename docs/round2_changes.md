@@ -77,4 +77,4 @@ streamlit run app/streamlit_app.py
 
 带 `--parser llm` 的命令需要 `.env` 里的 key，会产生费用。`<gold_labels.csv>` 即 `eval/gold_labels.csv`。
 
-第二轮的结果文件、实验脚本、挑战集、汇报稿和失败案例清单都在仓库的 [`round2/`](../round2/README.md) 里。
+第二轮的结果文件、实验脚本、挑战集和失败案例清单都在仓库的 [`experiments/`](../experiments/) 里。
