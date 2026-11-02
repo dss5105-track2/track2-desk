@@ -91,17 +91,22 @@ class Ledger:
         self.queue_free = {wid: float(w.queue0) for wid, w in self.workshops.items()}
         live = [r for r in self.records if r["status"] == "committed"]
         self.records = [r for r in self.records if r["status"] != "committed"]
+        seq = self.seq
         for r in live:
-            self.commit(request_id=r["request_id"], order_id=r["order_id"], workshop_id=r["workshop_id"],
-                        category=r["category"], pieces=r["pieces"], sent_date=date.fromisoformat(r["sent_date"]),
-                        due_date=date.fromisoformat(r["due_date"]), requester=r["requester"],
-                        confirmed_by=r["confirmed_by"], reason=r["reason"], constraints=r["constraints"],
-                        candidates=r["candidates"], objective=r["objective"])
+            rec = self.commit(request_id=r["request_id"], order_id=r["order_id"], workshop_id=r["workshop_id"],
+                              category=r["category"], pieces=r["pieces"], sent_date=date.fromisoformat(r["sent_date"]),
+                              due_date=date.fromisoformat(r["due_date"]), requester=r["requester"],
+                              confirmed_by=r["confirmed_by"], reason=r["reason"], constraints=r["constraints"],
+                              candidates=r["candidates"], objective=r["objective"],
+                              model_version=r["model_version"], tool_version=r["tool_version"])
+            rec["audit_id"], rec["written_at"] = r["audit_id"], r["written_at"]     # a replay does not rewrite who did what, when
+        self.seq = seq
         return self.commit(request_id=old["request_id"], order_id=old["order_id"], workshop_id=new_workshop_id,
                            category=old["category"], pieces=old["pieces"], sent_date=date.fromisoformat(old["sent_date"]),
                            due_date=date.fromisoformat(old["due_date"]), requester=old["requester"],
                            confirmed_by=confirmed_by, reason=reason, constraints=old["constraints"],
-                           candidates=old["candidates"], objective=old["objective"])
+                           candidates=old["candidates"], objective=old["objective"],
+                           model_version=old["model_version"], tool_version=old["tool_version"])
 
     def save(self, path: Path) -> None:
         path.write_text(json.dumps(self.records, ensure_ascii=False, indent=2), encoding="utf-8")

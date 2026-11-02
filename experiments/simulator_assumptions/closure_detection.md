@@ -4,16 +4,23 @@
 
 **Method.** `kernel/closure.py` keeps the worst case each workshop's queue could reach, with every batch reworked. A queue above that cannot be a defect, so the workshop is flagged and gets no new work until the unexplained part has run out.
 
-**Results.** Use `closure_detection.csv` for the numbers.
+## Late batches under shock
 
-- No false alarms: 0 flags in 60 runs without a closure, and results identical to plain `use_slack`.
-- Flagged 9 of 10 closures on the reported seeds and 43 of 50 on seeds not used while writing it, always on the workshop that closed.
-- A closure is missed when the workshop gets no batch that touches the closure, so the queue shows no trace.
-- **It does not reduce lateness:** 1.667% with and without on the reported seeds; 1.533% with, 1.517% without on the others.
+| Seeds | `use_slack` | With the watch | With perfect knowledge |
+|---|---|---|---|
+| Reported, 5105-5114 | 1.667% | 1.667% | 1.583% |
+| Not used while writing it, 6000-6049 | 1.517% | 1.533% | 1.483% |
 
-**Why no gain.** Once one batch is stuck, the queue already shows the delay, so the estimates steer later batches elsewhere anyway. The simulator also cannot move the stuck batch. So we report the detector and do not make it a default setting.
+"Perfect knowledge" is told the closed workshop and sends it nothing during the closure, so it is the most any detector could gain: under 0.1 points. `use_slack` already holds up under this closure. Once one batch is stuck, the queue shows the delay and later batches go elsewhere, and the simulator cannot move a stuck batch. So the watch is not a default setting.
 
-**Limits.**
+## The detection rate does not carry over to real use
 
-- The simulator adds the whole pause to the queue when a batch is dispatched, so a flag can come before the closure starts (day 7 for a closure on day 30). A real queue would show nothing until work stopped.
-- The live desk has no feed of real queues, so this detector does not run there. At the desk a person reports the stop, in chat or on the Workshops tab, and the dispatcher confirms it. Confirming stops new work and lists batches that can be moved.
+It flags a closure in 52 of 60 shock runs, always on the right workshop, with no false alarm in 60 runs without a closure. **That rate is flattering, so do not quote it as a real-world capability:**
+
+- 40 of the 52 flags come before the closure starts. The simulator adds the whole pause to the queue when a batch is dispatched, so the queue reveals the future. A real queue would show nothing until work stopped.
+- The no-new-work window reaches the closure in only 33 of the 52 cases.
+- A closure is missed when the workshop gets no batch that touches it.
+
+## At the live desk
+
+The desk has no feed of real queues, so this detector does not run there. A person reports the stop, in chat or on the Workshops tab, and the dispatcher confirms it.

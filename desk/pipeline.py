@@ -42,7 +42,8 @@ from kernel.orders import load_orders, find_orders, last_week, state_checks, TOD
 from kernel.allocator import Allocator, OBJECTIVES, flexibility  # noqa: E402
 from kernel.estimator import estimate, split_estimate  # noqa: E402
 from kernel.ledger import Ledger  # noqa: E402
-from llm.llm_client import RuleBasedParser, LLMClient  # noqa: E402
+from desk.stop_reports import asks_nothing, read_stops  # noqa: E402
+from llm.llm_client import RuleBasedParser, LLMClient, parse_header  # noqa: E402
 
 OFFICIAL = {"allocate": "extract", "no_on_time_option": "extract", "ambiguous_reference": "clarify",
             "missing_fields": "clarify", "state_conflict": "clarify", "ineligible_suggestion": "refuse",
@@ -55,9 +56,6 @@ STATUS = {"allocate": "awaiting_confirmation", "no_on_time_option": "awaiting_de
 # statuses a dispatcher can set without touching the ledger
 HUMAN_STATUSES = {"reply_sent", "answer_sent", "escalated", "renegotiating", "dismissed", "closure_confirmed"}
 NEW_ORDER_RE = re.compile(r"details to follow|new rush|coming in from", re.I)
-# a statement that a workshop has stopped; a question or a message about an order is not one
-CLOSURE_RE = re.compile(r"\b(closed|closes|closing|closure|shut|shutdown|stopped|has stopped|failed (?:an? |the |its )?(?:inspection|audit)|"
-                        r"not (?:running|operating|working)|out of action)\b", re.I)
 
 
 def days(n: int) -> str:
@@ -72,6 +70,7 @@ class Desk:
         self.alloc = Allocator(objective)
         self.parser = parser or RuleBasedParser().parse
         self.session_excl: Dict[str, dict] = {}     # workshop_id -> {"by", "source"}
+        self.stopped: Dict[str, dict] = {}          # workshop_id -> {"by", "source", "time"}; set only by a person's confirmation
         self.history: List[dict] = []               # parsed requests, for cross-message memory
         self.decisions: Dict[str, dict] = {}
         self.actions: List[dict] = []               # every human action, ledger or not
@@ -113,19 +112,67 @@ class Desk:
             said.append(f"{req['pieces']} pcs")
         return ", ".join(said)
 
-    def _closure_report(self, req: dict) -> Optional[str]:
-        """The workshop a message reports as stopped, if it names exactly one and asks nothing else."""
-        text = req["raw_text"]
-        if req["order_id"] or "?" in text or not CLOSURE_RE.search(text):
-            return None
-        named = [wid for wid, w in self.W.items() if w.name.lower() in text.lower()]
-        return named[0] if len(named) == 1 else None
+    def _parse(self, line: str) -> dict:
+        """Parse a chat line, with any clause saying a workshop has stopped taken out first. A message that only
+        reports a stop becomes a report, without calling the model. One that also asks for something stays a request."""
+        names = {wid: w.name for wid, w in self.W.items()}
+        text = parse_header(line)[3]
+        stopped, rest = read_stops(text, names)
+        if not stopped:
+            return self.parser(line, list(self.history))
+        rest_line = line.strip()[:-len(text)] + rest
+        rules = RuleBasedParser().parse(rest_line, list(self.history))
+        quiet = asks_nothing(rest, stopped, names) and not any(rules.get(k) for k in ("order_id", "pieces", "due_date", "customer", "product"))
+        req = rules if quiet else self.parser(rest_line, list(self.history))
+        req["raw_text"] = text
+        if quiet and len(stopped) == 1:
+            req["stop_report"] = stopped[0]
+        else:
+            self._add_stop_mentions(req, stopped)
+        return req
+
+    @staticmethod
+    def _add_stop_mentions(req: dict, stopped: List[str]) -> None:
+        """Keep these shops out of this request only, until a person confirms or dismisses the stop."""
+        req["stop_mentions"] = sorted(set(req.get("stop_mentions", [])) | set(stopped))
+        req["stop_added"] = sorted(set(req.get("stop_added", [])) | (set(stopped) - set(req["excluded_workshops"])))
+        req["excluded_workshops"] = sorted(set(req["excluded_workshops"]) | set(stopped))
+        if req["forced_workshop"] in stopped:
+            req["stop_forced"], req["forced_workshop"] = req["forced_workshop"], None
+
+    @staticmethod
+    def _clear_stop_mention(req: dict, wid: str) -> None:
+        """Undo _add_stop_mentions() for one shop. What the message itself ruled out stays ruled out."""
+        req["stop_mentions"] = [w for w in req.get("stop_mentions", []) if w != wid]
+        if wid in req.get("stop_added", []):
+            req["stop_added"].remove(wid)
+            req["excluded_workshops"] = [w for w in req["excluded_workshops"] if w != wid]
+        if req.get("stop_forced") == wid:
+            req["forced_workshop"], req["stop_forced"] = wid, None
+
+    def pending_stops(self) -> Dict[str, str]:
+        """Workshops someone has said have stopped, not yet confirmed or dismissed: workshop_id -> request_id."""
+        out: Dict[str, str] = {}
+        for rid, d in self.decisions.items():
+            if d["status"] == "closure_reported":
+                out.setdefault(d["reported_workshop"], rid)
+            elif d["status"] != "dismissed":
+                for wid in d.get("stop_mentions", []):
+                    if wid not in self.stopped:
+                        out.setdefault(wid, rid)
+        return out
+
+    def blocked_for_move(self, rec: dict) -> set:
+        """Where a dispatched batch may not go: what its own request ruled out, standing bans and stopped shops."""
+        d = self.decisions.get(rec["request_id"])
+        own = set(d["parsed"]["excluded_workshops"]) if d else set()
+        return own | set(self.session_excl) | set(self.stopped)
 
     def _batches_at(self, wid: str) -> List[dict]:
         return [r for r in self.ledger.records if r["status"] == "committed" and r["workshop_id"] == wid]
 
     def exclusions_for(self, req: dict) -> set:
-        return set(req["excluded_workshops"]) | set(self.session_excl)
+        return set(req["excluded_workshops"]) | set(self.session_excl) | set(self.stopped)
 
     def _set_later(self, wid: str, req: dict) -> bool:
         """True when the standing constraint on wid was set by a message that arrived after req."""
@@ -134,12 +181,12 @@ class Desk:
         return bool(src and mine is not None and src.get("seq", -1) > mine)
 
     def _excl_label(self, wid: str, req: dict) -> str:
+        if wid in self.stopped:
+            return f"{self.name(wid)} (stopped, confirmed by {self.stopped[wid]['by']})"
         src = self.session_excl.get(wid)
         if src and wid not in req["excluded_workshops"]:
             when = (f", set at {src['time']}, after this request arrived; it applies while the request is open"
                     if self._set_later(wid, req) else "")
-            if src.get("stopped"):
-                return f"{self.name(wid)} (stopped, confirmed by {src['by']})"
             return f"{self.name(wid)} (excluded by {src['by']} in {src['source']}{when})"
         return f"{self.name(wid)} (excluded in this request)"
 
@@ -156,7 +203,7 @@ class Desk:
              "flags": [], "batch": None, "order_candidates": [], "refused_workshop": None}
 
         # a workshop reported as stopped: flag it for the dispatcher; nothing changes until they confirm
-        reported = self._closure_report(req)
+        reported = req.get("stop_report")
         if reported:
             batches = self._batches_at(reported)
             d["subtype"] = "closure_report"
@@ -165,6 +212,8 @@ class Desk:
                                     "output": {"count": len(batches), "orders": [r["order_id"] for r in batches]}})
             d["explanation"] = (f"{self.name(reported)} is reported as stopped. Nothing changes until you confirm. Once you do, no new work "
                                 f"goes there, and {len(batches)} dispatched {'batch' if len(batches) == 1 else 'batches'} there can be re-dispatched.")
+            if reported in self.stopped:
+                d["explanation"] = f"{self.name(reported)} is reported as stopped; it is already marked as stopped."
             return d
 
         # 1. questions the data cannot answer
@@ -275,15 +324,18 @@ class Desk:
             d["tool_calls"].append({"tool": "standing_constraints",
                                     "output": {wid: {"workshop": self.name(wid), "by": v["by"], "source": v["source"], "time": v.get("time", "")}
                                                for wid, v in self.session_excl.items()}})
+        if self.stopped:
+            d["tool_calls"].append({"tool": "stopped_workshops", "output": {wid: {"workshop": self.name(wid), "by": v["by"]} for wid, v in self.stopped.items()}})
         pref = req["preference"] if req["preference"] in ("fastest", "cheapest_on_time", "lowest_defect") else None
         rows = self.alloc.rank(batch, self.W, self.ledger.queues(), exclude=excl, preference=pref)
         ests = [r["estimate"] for r in rows]
         table = eligibility_table(self.W, batch["category"], batch["pieces"], exclude=excl)
         for row in table:
             src = self.session_excl.get(row["workshop_id"])
-            if src and row["reason"] == "excluded by request" and row["workshop_id"] not in req["excluded_workshops"]:
-                row["reason"] = (f"stopped, confirmed by {src['by']}" if src.get("stopped")
-                                 else f"excluded by {src['by']} in {src['source']} (this week)")
+            if row["workshop_id"] in self.stopped and row["reason"] == "excluded by request":
+                row["reason"] = f"stopped, confirmed by {self.stopped[row['workshop_id']]['by']}"
+            elif src and row["reason"] == "excluded by request" and row["workshop_id"] not in req["excluded_workshops"]:
+                row["reason"] = f"excluded by {src['by']} in {src['source']} (this week)"
                 if self._set_later(row["workshop_id"], req):
                     row["reason"] += "; set after this request arrived"
         d["tool_calls"].append({"tool": "eligibility_table", "input": {"category": batch["category"], "pieces": batch["pieces"],
@@ -305,9 +357,10 @@ class Desk:
         fw = req["forced_workshop"]
         if fw:
             ok, why = check_eligibility(self.W[fw], batch["category"], batch["pieces"])
-            if ok and fw in self.session_excl:
-                ok, why = False, ("it is reported as stopped" if self.session_excl[fw].get("stopped")
-                                  else f"{self.session_excl[fw]['by']} said nothing new goes to it ({self.session_excl[fw]['source']})")
+            if ok and fw in self.stopped:
+                ok, why = False, "it is reported as stopped"
+            elif ok and fw in self.session_excl:
+                ok, why = False, f"{self.session_excl[fw]['by']} said nothing new goes to it ({self.session_excl[fw]['source']})"
             if not ok:
                 d["subtype"] = "ineligible_suggestion"
                 d["recommended"] = ests[0].workshop_id if ests else None
@@ -359,8 +412,8 @@ class Desk:
                                          + (", so it doesn't help." if s["gain_days"] < 0.5 else "."))
             if fw is None and self.session_excl:
                 lifted = [r["estimate"] for r in self.alloc.rank(batch, self.W, self.ledger.queues(),
-                                                                 exclude=set(req["excluded_workshops"]), preference=pref)]
-                d["tool_calls"].append({"tool": "rank_candidates", "input": {"exclude": sorted(req["excluded_workshops"]), "note": "session ban lifted"},
+                                                                 exclude=set(req["excluded_workshops"]) | set(self.stopped), preference=pref)]
+                d["tool_calls"].append({"tool": "rank_candidates", "input": {"exclude": sorted(set(req["excluded_workshops"]) | set(self.stopped)), "note": "session ban lifted"},
                                         "output": [e.as_dict() for e in lifted]})
                 if lifted and lifted[0].workshop_id in self.session_excl:
                     l0 = lifted[0]
@@ -397,18 +450,23 @@ class Desk:
         d["official_behaviour"] = OFFICIAL[d["subtype"]]
         d["status"] = STATUS[d["subtype"]]
         d["number_check"] = number_check(d["explanation"], d["tool_calls"], d.get("batch"), req)
+        d["stop_mentions"] = [w for w in req.get("stop_mentions", []) if w not in self.stopped]
+        d["flags"] += [f"message says {self.name(w)} may have stopped; kept out of this request until someone confirms" for w in d["stop_mentions"]]
+        src = self.pending_stops().get(d["recommended"])
+        if src and src != d["request_id"]:
+            d["flags"].append(f"{self.name(d['recommended'])} is reported as stopped in {src}, not yet confirmed")
         return d
 
     # ---------------------------------------------------------------- dispatcher API
     def propose(self, line: str) -> dict:
         """Route one chat line. Writes nothing to the ledger."""
-        req = self.parser(line, list(self.history))
+        req = self._parse(line)
         if not req.get("request_id"):
             req["request_id"] = self.next_request_id()
         self.arrival[req["request_id"]] = len(self.arrival)
         d = self._finish(self.route(req), req)
-        if req["constraint_scope"] == "session":
-            for wid in req["excluded_workshops"]:
+        if req["constraint_scope"] == "session" and not req.get("stop_report"):
+            for wid in [w for w in req["excluded_workshops"] if w not in req.get("stop_added", [])]:
                 by = "Boss" if re.search(r"\bboss\b", req["raw_text"], re.I) else req["requester"]
                 self.session_excl[wid] = {"by": by, "source": req["request_id"], "time": req.get("timestamp") or "",
                                           "seq": self.arrival[req["request_id"]]}
@@ -449,6 +507,9 @@ class Desk:
         """The requester's answer to a clarifying question, processed as a new message."""
         d = self.decisions[request_id]
         new = self.new_message(d["requester"], text)
+        if d["parsed"].get("stop_mentions"):        # the answer does not repeat that a shop has stopped
+            self._add_stop_mentions(new["parsed"], d["parsed"]["stop_mentions"])
+            new = self.refresh(new["request_id"])
         new["flags"].append(f"answer to {request_id}")
         d["status"] = "reply_sent"
         d["follow_up"] = new["request_id"]
@@ -482,6 +543,8 @@ class Desk:
         ok, why = check_eligibility(self.W[wid], batch["category"], batch["pieces"])
         if not ok:
             raise ValueError(f"{self.name(wid)} cannot take {order.order_id}: {why}")
+        if wid in self.stopped:
+            raise ValueError(f"{self.name(wid)} is marked as stopped; reopen it first")
         if wid in self.exclusions_for(req):
             src = self.session_excl.get(wid)
             raise ValueError(f"{self.name(wid)} is excluded" + (f" by {src['by']} ({src['source']}); lift the constraint first" if src else " by this request"))
@@ -496,7 +559,8 @@ class Desk:
         rec = self.ledger.commit(request_id=request_id, order_id=order.order_id, workshop_id=wid,
                                  category=order.category, pieces=batch["pieces"], sent_date=TODAY, due_date=batch["due_date"],
                                  requester=req["requester"], confirmed_by=by, reason=" | ".join([d["explanation"]] + note),
-                                 constraints={"excluded": sorted(self.exclusions_for(req)), "session": copy.deepcopy(self.session_excl)},
+                                 constraints={"excluded": sorted(self.exclusions_for(req)), "session": copy.deepcopy(self.session_excl),
+                                              "stopped": copy.deepcopy(self.stopped)},
                                  candidates=d["candidates"], objective={"name": self.alloc.objective, "preference": req["preference"]},
                                  model_version=req["parser"])
         self.alloc.load[wid] = self.alloc.load.get(wid, 0) + batch["pieces"]
@@ -510,11 +574,17 @@ class Desk:
         return rec
 
     def reassign(self, audit_id: str, workshop_id: str, by: str = "dispatcher", reason: str = "reassigned by dispatcher") -> dict:
-        old = next(r for r in self.ledger.records if r["audit_id"] == audit_id)
+        old = next((r for r in self.ledger.records if r["audit_id"] == audit_id), None)
+        if old is None:
+            raise ValueError(f"no audit record {audit_id}")
         ok, why = check_eligibility(self.W[workshop_id], old["category"], old["pieces"])
         if not ok:
             raise ValueError(f"{self.name(workshop_id)} cannot take {old['order_id']}: {why}")
+        if workshop_id in self.blocked_for_move(old):
+            raise ValueError(f"{self.name(workshop_id)} cannot take {old['order_id']}: it is stopped, banned, or ruled out by the request")
         rec = self.ledger.reassign(audit_id, workshop_id, confirmed_by=by, reason=reason)
+        self.alloc.load[old["workshop_id"]] = self.alloc.load.get(old["workshop_id"], 0) - old["pieces"]
+        self.alloc.load[workshop_id] = self.alloc.load.get(workshop_id, 0) + old["pieces"]
         for d in self.decisions.values():
             if d["committed"] == audit_id:
                 d["committed"] = rec["audit_id"]
@@ -522,35 +592,57 @@ class Desk:
                 d["confirm_notes"] = (d.get("confirm_notes") or []) + [f"reassigned from {audit_id} to {self.name(workshop_id)}"]
                 d["final_estimate"] = rec["estimate"]
         self._log(old["request_id"], "reassign", by, f"{audit_id} -> {rec['audit_id']} {self.name(workshop_id)}: {reason}")
-        # audit ids of the replayed records changed; keep decisions pointing at live records
-        live = {r["request_id"]: r["audit_id"] for r in self.ledger.records if r["status"] == "committed"}
+        # the replay re-estimated every live batch; keep decisions in step with the ledger
+        live = {r["request_id"]: r for r in self.ledger.records if r["status"] == "committed"}
         for d in self.decisions.values():
             if d["committed"] and d["request_id"] in live:
-                d["committed"] = live[d["request_id"]]
+                d["committed"] = live[d["request_id"]]["audit_id"]
+                d["final_estimate"] = live[d["request_id"]]["estimate"]
         self.refresh_all()
         return rec
 
     def mark_stopped(self, workshop_id: str, by: str = "dispatcher", source: Optional[str] = None) -> None:
-        """A person confirmed the workshop has stopped: no new work goes there until lift_constraint()."""
-        self.session_excl[workshop_id] = {"by": by, "source": source or "dispatcher", "time": f"{datetime.now():%H:%M}",
-                                          "seq": len(self.arrival), "stopped": True}
+        """A person confirmed the workshop has stopped: no new work goes there until reopen()."""
+        if workshop_id in self.stopped:
+            return
+        self.stopped[workshop_id] = {"by": by, "source": source or "dispatcher", "time": f"{datetime.now():%H:%M}"}
         self._log(source, "mark_stopped", by, self.name(workshop_id))
         self.refresh_all()
 
+    def reopen(self, workshop_id: str, by: str = "dispatcher") -> None:
+        """Ends a stop, and what messages ruled out because of it. A ban on the same workshop is separate and stays."""
+        self.stopped.pop(workshop_id, None)
+        for d in self.decisions.values():
+            self._clear_stop_mention(d["parsed"], workshop_id)
+            d["stop_mentions"] = [w for w in d.get("stop_mentions", []) if w != workshop_id]
+        self._log(None, "reopen", by, self.name(workshop_id))
+        self.refresh_all()
+
+    def dismiss_stop_mention(self, request_id: str, workshop_id: str, by: str = "dispatcher") -> dict:
+        """The dispatcher says the message was wrong, or was misread: the shop can take this request after all."""
+        d = self.decisions[request_id]
+        self._clear_stop_mention(d["parsed"], workshop_id)
+        d["stop_mentions"] = [w for w in d.get("stop_mentions", []) if w != workshop_id]
+        self._log(request_id, "dismiss_stop_mention", by, self.name(workshop_id))
+        return self.refresh(request_id)
+
     def confirm_closure(self, request_id: str, by: str = "dispatcher") -> None:
         d = self.decisions[request_id]
+        if d["status"] != "closure_reported":
+            raise ValueError(f"{request_id} is not an open report of a stopped workshop")
         d["status"] = "closure_confirmed"
         self.mark_stopped(d["reported_workshop"], by, source=request_id)
 
     def stopped_impact(self) -> List[dict]:
         """Batches already at a stopped workshop, each with the best place to move it now. Writes nothing."""
         rows = []
-        stopped = [wid for wid, src in self.session_excl.items() if src.get("stopped")]
-        for wid in stopped:
+        for wid in self.stopped:
             for r in self._batches_at(wid):
                 due = r["due_date"] if isinstance(r["due_date"], date) else date.fromisoformat(r["due_date"])
                 batch = {"order_id": r["order_id"], "category": r["category"], "pieces": r["pieces"], "sent_date": TODAY, "due_date": due}
-                ranked = self.alloc.rank(batch, self.W, self.ledger.queues(), exclude=set(self.session_excl))
+                pref = self.decisions[r["request_id"]]["parsed"]["preference"]
+                pref = pref if pref in ("fastest", "cheapest_on_time", "lowest_defect") else None
+                ranked = self.alloc.rank(batch, self.W, self.ledger.queues(), exclude=self.blocked_for_move(r), preference=pref)
                 best = ranked[0]["estimate"].as_dict() if ranked else None
                 rows.append({"audit_id": r["audit_id"], "request_id": r["request_id"], "order_id": r["order_id"], "pieces": r["pieces"],
                              "workshop_id": wid, "due_date": due.isoformat(), "best": best})
@@ -570,14 +662,17 @@ class Desk:
         open_alloc = [(rid, d) for rid, d in self.decisions.items() if self.is_open(d) and d["subtype"] == "allocate"]
         open_alloc.sort(key=lambda x: self.arrival.get(x[0], 10 ** 9))
         best = {rid: next(c for c in d["candidates"] if c["workshop_id"] == d["recommended"]) for rid, d in open_alloc}
+        pending = self.pending_stops()
         tight = {}
         if only_safe:
             for rid, d in open_alloc:
-                if not best[rid].get("safe"):
+                if not best[rid].get("safe") and d["recommended"] not in pending:
                     tight.setdefault(d["recommended"], []).append(rid)
         go, held = [], []
         for rid, d in open_alloc:
-            if only_safe and not best[rid].get("safe"):
+            if d["recommended"] in pending:
+                held.append({"request_id": rid, "reason": f"reported stopped: {self.name(d['recommended'])}, in {pending[d['recommended']]}; decide that first"})
+            elif only_safe and not best[rid].get("safe"):
                 held.append({"request_id": rid, "reason": "tight: on time, but not if the batch is reworked"})
             elif only_safe and tight.get(d["recommended"]):
                 held.append({"request_id": rid, "reason": f"would use {self.name(d['recommended'])}, which tight request "

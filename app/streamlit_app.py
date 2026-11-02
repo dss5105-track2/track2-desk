@@ -169,12 +169,18 @@ with st.sidebar:
         st.rerun()
 
     st.subheader("Standing constraints")
-    if not desk.session_excl:
+    if not desk.session_excl and not desk.stopped:
         st.caption("None")
+    for wid, src in list(desk.stopped.items()):
+        cc1, cc2 = st.columns([5, 3])
+        cc1.markdown(f"🛑 **{desk.name(wid)}** · stopped  \n<small>confirmed by {src['by']} at {src['time']}</small>", unsafe_allow_html=True)
+        if cc2.button("Reopen", key=f"reopen_{wid}"):
+            desk.reopen(wid)
+            flash(f"{desk.name(wid)} reopened; open requests re-ranked")
+            st.rerun()
     for wid, src in list(desk.session_excl.items()):
         cc1, cc2 = st.columns([3, 1])
-        what = "stopped" if src.get("stopped") else "no new work"
-        cc1.markdown(f"⛔ **{desk.name(wid)}** · {what}  \n<small>{src['by']} in {src['source']} at {src.get('time', '')} · applies to every open request</small>",
+        cc1.markdown(f"⛔ **{desk.name(wid)}** · no new work  \n<small>{src['by']} in {src['source']} at {src.get('time', '')} · applies to every open request</small>",
                      unsafe_allow_html=True)
         if cc2.button("Lift", key=f"lift_{wid}"):
             desk.lift_constraint(wid)
@@ -187,7 +193,7 @@ with st.sidebar:
     for r in desk.ledger.records:
         if r["status"] == "committed":
             sent[r["workshop_id"]] = sent.get(r["workshop_id"], 0) + r["pieces"]
-    st.dataframe(pd.DataFrame([{"Workshop": desk.name(w) + (" ⛔" if (desk.W[w].status != "ACTIVE" or w in desk.session_excl) else ""),
+    st.dataframe(pd.DataFrame([{"Workshop": desk.name(w) + (" 🛑" if w in desk.stopped else " ⛔" if (desk.W[w].status != "ACTIVE" or w in desk.session_excl) else ""),
                                 "Queue": round(v, 1), "Sent": sent.get(w, 0)} for w, v in q.items()]),
                  hide_index=True, width="stretch",
                  column_config={"Queue": st.column_config.NumberColumn("Queue d", format="%.1f", width=62, help="Days of work the shop is holding now"),
@@ -322,9 +328,18 @@ def render_card(d: dict) -> None:
         st.caption("Not eligible: " + " · ".join(f"**{e['name']}** ({e['reason']})" for e in blocked))
 
     # ---- actions
+    for wid in [w for w in d.get("stop_mentions", []) if w not in desk.stopped]:
+        s1, s2 = st.columns(2)
+        if s1.button(f"Confirm: {desk.name(wid)} has stopped", key=f"stopm_{rid}_{wid}", width="stretch"):
+            act(desk.mark_stopped, wid, source=rid, ok=f"{desk.name(wid)} marked as stopped; open requests re-ranked")
+            st.rerun()
+        if s2.button("Not stopped, allow it here", key=f"nostopm_{rid}_{wid}", width="stretch"):
+            act(desk.dismiss_stop_mention, rid, wid, ok=f"{desk.name(wid)} can take {rid} after all")
+            st.rerun()
     if d["status"] == "committed":
         rec = next(r for r in desk.ledger.records if r["audit_id"] == d["committed"])
-        others = [x for x in d["candidates"] if x["workshop_id"] != d["confirmed_workshop"]]
+        blocked_now = desk.blocked_for_move(rec)
+        others = [x for x in d["candidates"] if x["workshop_id"] != d["confirmed_workshop"] and x["workshop_id"] not in blocked_now]
         if others:
             a1, a2 = st.columns([3, 2])
             target = a1.selectbox("Reassign to", [x["workshop_id"] for x in others], format_func=desk.name, key=f"re_{rid}")
@@ -410,6 +425,11 @@ def render_card(d: dict) -> None:
             act(desk.mark, rid, "answer_sent", ok=f"{rid} closed")
             st.session_state.selected = next_open(rid)
             st.rerun()
+    elif desk.is_open(d):      # nothing to confirm and nobody to ask, for instance no workshop left that can take it
+        if st.button("Escalate", key=f"esc_{rid}", type="primary"):
+            act(desk.mark, rid, "escalated", ok=f"{rid} escalated")
+            st.session_state.selected = next_open(rid)
+            st.rerun()
     else:
         st.caption(f"Closed: {STATUS_LABEL[d['status']][0]}")
 
@@ -435,7 +455,7 @@ with tab_desk:
     impact = desk.stopped_impact()
     if impact:
         with st.container(border=True):
-            st.markdown(f"**🛑 {len(impact)} dispatched {'batch is' if len(impact) == 1 else 'batches are'} at a stopped workshop.** Move, or leave to wait for it to reopen.")
+            st.markdown(f"**🛑 {len(impact)} dispatched {'batch is' if len(impact) == 1 else 'batches are'} at a stopped workshop.** Their promised dates no longer hold: move them, or leave them to wait for it to reopen.")
             for row in impact:
                 m1, m2 = st.columns([3, 2], vertical_alignment="center")
                 if row["best"]:
@@ -492,9 +512,11 @@ with tab_desk:
                 st.rerun()
             if held:
                 n_tight = sum(1 for h in held if h["reason"].startswith("tight"))
+                n_stop = sum(1 for h in held if h["reason"].startswith("reported stopped"))
                 st.caption(("Held back for you: " if n_go else "Decide these one by one: ")
                            + f"{n_tight} tight (a rework would make them late), listed ahead of the other inbox messages"
-                           + (f", and {len(held) - n_tight} that would take a workshop a tight one needs." if len(held) > n_tight else "."))
+                           + (f", {n_stop} going to a workshop reported as stopped" if n_stop else "")
+                           + (f", and {len(held) - n_tight - n_stop} that would take a workshop a tight one needs." if len(held) > n_tight + n_stop else "."))
         inbox = pd.DataFrame([inbox_row(d) for d in view])
         if len(inbox):
             ev = st.dataframe(inbox, hide_index=True, width="stretch", on_select="rerun", selection_mode="single-row",
@@ -538,6 +560,7 @@ with tab_ws:
         "Pcs/day": w.capacity, "Transport days": w.lead_days, "Defect": f"{w.defect_rate:.0%}", "Cost/pc": w.cost,
         "Max batch": str(w.max_batch) if w.max_batch else "no cap", "Queue now (days)": round(q[w.workshop_id], 1),
         "Sent today (pcs)": sent.get(w.workshop_id, 0),
+        "Stopped": f"confirmed by {desk.stopped[w.workshop_id]['by']}" if w.workshop_id in desk.stopped else "",
         "Standing constraint": (f"no new work ({desk.session_excl[w.workshop_id]['by']}, {desk.session_excl[w.workshop_id]['source']} "
                                 f"at {desk.session_excl[w.workshop_id].get('time', '')})") if w.workshop_id in desk.session_excl else "",
         "Notes": w.notes,
@@ -546,9 +569,9 @@ with tab_ws:
     st.bar_chart(reg, x="Name", y="Queue now (days)", horizontal=True, height=280)
 
     st.subheader("A workshop has stopped")
-    st.caption("Stops new work there and lists what can be moved. Undo with Lift in the sidebar.")
+    st.caption("Stops new work there and lists what can be moved. Undo with Reopen in the sidebar.")
     sc1, sc2 = st.columns([3, 2], vertical_alignment="bottom")
-    active = [w.workshop_id for w in desk.W.values() if w.status == "ACTIVE" and w.workshop_id not in desk.session_excl]
+    active = [w.workshop_id for w in desk.W.values() if w.status == "ACTIVE" and w.workshop_id not in desk.stopped]
     stop_wid = sc1.selectbox("Workshop", active, format_func=desk.name)
     if stop_wid and sc2.button("Mark as stopped", width="stretch"):
         act(desk.mark_stopped, stop_wid, ok=f"{desk.name(stop_wid)} marked as stopped; open requests re-ranked")
@@ -558,7 +581,7 @@ with tab_ws:
     wc1, wc2 = st.columns(2)
     cat = wc1.selectbox("Category", ["TOPS", "ACCESSORIES"])
     pcs = wc2.number_input("Pieces", min_value=1, max_value=5000, value=1500, step=100)
-    elig = eligibility_table(desk.W, cat, int(pcs), exclude=set(desk.session_excl))
+    elig = eligibility_table(desk.W, cat, int(pcs), exclude=set(desk.session_excl) | set(desk.stopped))
     st.dataframe(pd.DataFrame([{"Workshop": e["name"], "Can take": "✅" if e["eligible"] else "❌", "Reason": e["reason"]} for e in elig]),
                  hide_index=True, width="stretch")
 
