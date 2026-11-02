@@ -131,7 +131,7 @@ scenarios/     Stress scenarios: tight due dates, accessory surge
 eval/          Protocol, labelling guide, labels, scoring scripts, independent decision checker
 eval/heldout/  Frozen held-out inbox and the records of each run
 experiments/   Scripts and results behind the numbers above, challenge set, failure cases
-docs/          Tool specification, architecture, interface guide, round-2 changes, factory primer
+docs/          Tool specification, architecture, interface guide, user test tasks, round-2 changes, factory primer
 tests/         59 automated tests
 ```
 
