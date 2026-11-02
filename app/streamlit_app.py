@@ -17,11 +17,13 @@ from __future__ import annotations
 import json
 import os
 import sys
+import time
 from datetime import date
 from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -401,8 +403,20 @@ def render_card(d: dict) -> None:
 
 
 with tab_desk:
+    # the way in for a new chat message: first thing on the page, not below a long inbox
+    with st.form("new_message", clear_on_submit=True, border=True):
+        st.markdown("**💬 New chat message**")
+        fc1, fc2, fc3 = st.columns([1, 5, 1], vertical_alignment="center")
+        sender = fc1.selectbox("From", SENDERS, label_visibility="collapsed")
+        text = fc2.text_input("Message", placeholder="Type a request as it would appear in the group chat, e.g. ORD-066 — 1000 polo shirts, due Apr 20", label_visibility="collapsed")
+        if fc3.form_submit_button("Send", type="primary", width="stretch") and text.strip():
+            nd = desk.new_message(sender, text.strip())
+            st.session_state.selected = nd["request_id"]
+            st.session_state.group_pending = group_of(nd)
+            st.session_state.scroll_until = time.time() + 3
+            st.rerun()
     if not desk.decisions:
-        st.info("Click **Load morning inbox** in the sidebar to receive the 30 chat messages from 1 April, or type a new message below.")
+        st.info("Type a message above, or click **Load morning inbox** in the sidebar to receive the 30 chat messages from 1 April.")
     desk.refresh_all()
     decisions = list(desk.decisions.values())
     counts = {k: sum(1 for d in decisions if d["status"] in statuses) for k, _, statuses in GROUPS}
@@ -422,9 +436,12 @@ with tab_desk:
     group = st.session_state.group
     view = [d for d in decisions if group_of(d) == group]
 
-    def urgency(d):          # tightest first: fewest days to spare, then arrival
+    def urgency(d):          # messages typed here first, newest on top; then the inbox, tightest first (fewest days to spare, then arrival)
         c = chosen(d)
-        return (margin(c, d) if (c and d.get("batch")) else 99, desk.arrival.get(d["request_id"], 0))
+        at = desk.arrival.get(d["request_id"], 0)
+        if not d["request_id"].startswith("R"):
+            return (0, -at, 0)
+        return (1, margin(c, d) if (c and d.get("batch")) else 99, at)
     view.sort(key=urgency)
 
     left, right = st.columns([6, 7], gap="large")
@@ -443,13 +460,13 @@ with tab_desk:
             if held:
                 n_tight = sum(1 for h in held if h["reason"].startswith("tight"))
                 st.caption(("Held back for you: " if n_go else "Decide these one by one: ")
-                           + f"{n_tight} tight (a rework would make them late), listed first"
+                           + f"{n_tight} tight (a rework would make them late), listed ahead of the other inbox messages"
                            + (f", and {len(held) - n_tight} that would take a workshop a tight one needs." if len(held) > n_tight else "."))
         inbox = pd.DataFrame([inbox_row(d) for d in view])
         if len(inbox):
             ev = st.dataframe(inbox, hide_index=True, width="stretch", on_select="rerun", selection_mode="single-row",
-                              # the key changes with every ledger write or human action, so a stale row selection cannot outlive the list it pointed into
-                              key=f"inbox_{group}_{len(desk.ledger.records)}_{len(desk.actions)}", height=min(38 + 35 * len(inbox), 600),
+                              # the key changes with every new message, ledger write or human action, so a stale row selection cannot outlive the list it pointed into
+                              key=f"inbox_{group}_{len(desk.decisions)}_{len(desk.ledger.records)}_{len(desk.actions)}", height=min(38 + 35 * len(inbox), 600),
                               column_config={"ID": st.column_config.TextColumn("ID", width=48),
                                              "Order": st.column_config.TextColumn("Order", width=76),
                                              "Decision": st.column_config.TextColumn("Decision", width=178),
@@ -465,23 +482,18 @@ with tab_desk:
             st.caption("Nothing here.")
             st.session_state.selected = None
 
-        with st.form("new_message", clear_on_submit=True):
-            st.markdown("**New message**")
-            fc1, fc2 = st.columns([1, 3])
-            sender = fc1.selectbox("From", SENDERS, label_visibility="collapsed")
-            text = fc2.text_input("Message", placeholder="e.g. ORD-066 — 1000 polo shirts, due Apr 20", label_visibility="collapsed")
-            if st.form_submit_button("Send to desk") and text.strip():
-                nd = desk.new_message(sender, text.strip())
-                st.session_state.selected = nd["request_id"]
-                st.session_state.group_pending = group_of(nd)
-                st.rerun()
-
     with right:
         rid = st.session_state.selected
         if not rid or rid not in desk.decisions:
             st.caption("Select a message to see the recommendation.")
         else:
+            st.markdown('<div id="answer-card"></div>', unsafe_allow_html=True)
             render_card(desk.decisions[rid])
+            # a message was just sent: bring its answer into view (on a phone the card is below the inbox).
+            # Kept for a few seconds because switching group reruns the app; the id makes each message's script new, or the browser would not run it again.
+            if time.time() < st.session_state.get("scroll_until", 0):
+                components.html(f"<!-- {rid} -->" + """<script>window.parent.eval("[150, 600, 1200].forEach(ms => setTimeout(() => "
+                                + "document.getElementById('answer-card')?.scrollIntoView({block: 'start'}), ms))")</script>""", height=0)
 
 
 # ------------------------------------------------------------------ workshops
