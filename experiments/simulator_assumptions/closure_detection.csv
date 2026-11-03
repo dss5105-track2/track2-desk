@@ -1,0 +1,17 @@
+﻿seeds,shock,policy,pct_late,late_days,flags,flags_on_closed_shop,flags_before_closure,no_new_work_reaches_closure,runs_flagged,runs
+reported 5105-5114,False,earliest_finish,1.667,0.178,0,0,0,0,0,10
+reported 5105-5114,False,use_slack,1.0,0.066,0,0,0,0,0,10
+reported 5105-5114,False,use_slack + closure watch,1.0,0.066,0,0,0,0,0,10
+reported 5105-5114,False,use_slack + perfect knowledge,1.0,0.066,0,0,0,0,0,10
+reported 5105-5114,True,earliest_finish,1.917,0.191,0,0,0,0,0,10
+reported 5105-5114,True,use_slack,1.667,0.101,0,0,0,0,0,10
+reported 5105-5114,True,use_slack + closure watch,1.667,0.1,9,9,8,5,9,10
+reported 5105-5114,True,use_slack + perfect knowledge,1.583,0.096,0,0,0,0,0,10
+unseen 6000-6049,False,earliest_finish,1.9,0.159,0,0,0,0,0,50
+unseen 6000-6049,False,use_slack,1.1,0.035,0,0,0,0,0,50
+unseen 6000-6049,False,use_slack + closure watch,1.1,0.035,0,0,0,0,0,50
+unseen 6000-6049,False,use_slack + perfect knowledge,1.1,0.035,0,0,0,0,0,50
+unseen 6000-6049,True,earliest_finish,2.067,0.167,0,0,0,0,0,50
+unseen 6000-6049,True,use_slack,1.517,0.064,0,0,0,0,0,50
+unseen 6000-6049,True,use_slack + closure watch,1.533,0.064,43,43,32,28,43,50
+unseen 6000-6049,True,use_slack + perfect knowledge,1.483,0.06,0,0,0,0,0,50
