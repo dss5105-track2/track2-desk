@@ -42,8 +42,10 @@ from kernel.orders import load_orders, find_orders, last_week, state_checks, TOD
 from kernel.allocator import Allocator, OBJECTIVES, flexibility  # noqa: E402
 from kernel.estimator import estimate, split_estimate  # noqa: E402
 from kernel.ledger import Ledger  # noqa: E402
+from desk.multi_orders import (ALSO_RE, DISPATCH_WORD_RE, NOT_A_REQUEST_RE, looks_like_dispatch, normalise_ids, other_batches,  # noqa: E402
+                               split_orders, suspect_ids, take_held, unhandled_question)
 from desk.stop_reports import asks_nothing, read_stops  # noqa: E402
-from llm.llm_client import RuleBasedParser, LLMClient, parse_header  # noqa: E402
+from llm.llm_client import RuleBasedParser, LLMClient, order_ids, parse_header  # noqa: E402
 
 OFFICIAL = {"allocate": "extract", "no_on_time_option": "extract", "ambiguous_reference": "clarify",
             "missing_fields": "clarify", "state_conflict": "clarify", "ineligible_suggestion": "refuse",
@@ -76,6 +78,8 @@ class Desk:
         self.actions: List[dict] = []               # every human action, ledger or not
         self.arrival: Dict[str, int] = {}           # request_id -> position in the inbox
         self.seq = 0
+        self.taken_ids: set = set()                 # request ids in use, including ones that arrived on a chat line
+        self.last_proposed: List[dict] = []         # the decisions from the latest chat line
 
     # ---------------------------------------------------------------- helpers
     def name(self, wid: str) -> str:
@@ -88,8 +92,12 @@ class Desk:
         self.refresh_all()
 
     def next_request_id(self) -> str:
-        self.seq += 1
-        return f"H{self.seq:02d}"
+        while True:
+            self.seq += 1
+            rid = f"H{self.seq:02d}"
+            if rid not in self.taken_ids:
+                self.taken_ids.add(rid)
+                return rid
 
     def _batch(self, order, req) -> dict:
         pieces = req["pieces"] or order.pieces
@@ -120,16 +128,94 @@ class Desk:
         stopped, rest = read_stops(text, names)
         if not stopped:
             return self.parser(line, list(self.history))
+        held, rest = take_held(rest)
         rest_line = line.strip()[:-len(text)] + rest
         rules = RuleBasedParser().parse(rest_line, list(self.history))
         quiet = asks_nothing(rest, stopped, names) and not any(rules.get(k) for k in ("order_id", "pieces", "due_date", "customer", "product"))
         req = rules if quiet else self.parser(rest_line, list(self.history))
         req["raw_text"] = text
+        req["held_orders"] = held
         if quiet and len(stopped) == 1:
             req["stop_report"] = stopped[0]
         else:
             self._add_stop_mentions(req, stopped)
+            if held:
+                req["extra_notes"] = [f"message says {', '.join(held)} already at the stopped workshop; not treated as new dispatches"]
         return req
+
+    def _parse_all(self, line: str) -> List[dict]:
+        """One parsed request per order number. Whatever cannot be handled is noted on the card, never dropped silently."""
+        names = {wid: w.name for wid, w in self.W.items()}
+        rid, stamp, who, text = parse_header(line)
+        stopped, rest = read_stops(text, names)
+        held, rest = take_held(rest) if stopped else ([], rest)
+        rest = normalise_ids(rest)
+        ids = list(dict.fromkeys(order_ids(rest)))
+        unread = suspect_ids(rest, self.O)
+        if rid and rid in self.decisions:       # a later line must not replace a card that took this id
+            new_rid = self.next_request_id()
+            line, rid = line.replace(rid, new_rid, 1), new_rid
+        if rid:
+            self.taken_ids.add(rid)
+        question = unhandled_question(rest)
+        asked_too = bool(question and DISPATCH_WORD_RE.search(rest.replace(question, "")))
+        if asked_too:       # read the request alone, or the question would hide it
+            rest, line = rest.replace(question, "").strip(), line.replace(question, "")
+        rules = RuleBasedParser().parse(rest)
+        if len(ids) >= 2 and looks_like_dispatch(rest, rules["question_type"]):
+            parts, unclear, extras = split_orders(rest)
+            rids = [rid or self.next_request_id()] + [self.next_request_id() for _ in parts[1:]]
+            reqs = []
+            for prid, (oid, part) in zip(rids, parts):
+                req = self.parser(f"{prid} [{stamp or datetime.now().strftime('%H:%M')}] {who or 'Unknown'}: {part}", list(self.history))
+                req["raw_text"], req["source_message"] = part, text
+                req["extra_notes"] = [f"one of {len(parts)} orders in this message; the others: {', '.join(r for r in rids if r != prid)}"]
+                if unclear:
+                    req["extra_notes"].append("part of this message is not clear which order it belongs to, so it is not applied and the order book's values are used; read the message")
+                if held:
+                    req["extra_notes"].append(f"message says {', '.join(held)} already at the stopped workshop; not treated as new dispatches")
+                if question:
+                    req["extra_notes"].append(f"this message also asks something not handled here: \"{question}\"")
+                if extras:
+                    req["extra_notes"].append(f"this message also mentions {', '.join(extras)}; not handled here")
+                if unread:
+                    req["extra_notes"].append("this message may name more orders than could be read; please check")
+                req["extra_notes"] += self._other_customer_note(oid, part, rest)
+                if stopped:
+                    self._add_stop_mentions(req, stopped)
+                reqs.append(req)
+            return reqs
+        req = self._parse(line)
+        req["raw_text"] = text
+        notes = req.setdefault("extra_notes", [])
+        batches = other_batches(rest)
+        if len(ids) >= 2:
+            notes.append(f"this message also names {', '.join(ids[1:])}; not handled here")
+            if rules["question_type"] == "allocation" and NOT_A_REQUEST_RE.search(rest) and not stopped:
+                req["unsure_orders"] = ids
+        elif ids and len(batches) >= 2:
+            notes.append(f"this message also mentions {', '.join(batches[1:])}; not handled here")
+        elif not ids and len(batches) >= 2:
+            req["multi_batches"] = batches
+        elif ids:
+            notes += self._other_customer_note(ids[0], rest, rest)
+            beside = re.search(r"\bORD-\d{1,3}\s+(?:and|plus|&)\s+(\d[^,.;]*)", rest, re.I)
+            if beside:      # "ORD-053 and 300 scarves": the quantity may not be this order's
+                notes.append(f"this message also mentions {beside.group(1).strip()}; not handled here")
+        if unread:
+            notes.append("this message may name more orders than could be read; please check")
+        if question and (asked_too or rules["question_type"] == "allocation"):
+            notes.append(f"this message also asks something not handled here: \"{question}\"")
+        return [req]
+
+    def _other_customer_note(self, order_id: str, text: str, whole: str) -> List[str]:
+        """'ORD-041 and also the Cotton Club vests': something beside this order that the card does not cover."""
+        order = self.O.get(order_id)
+        if not order or not ALSO_RE.search(whole):
+            return []
+        rules = RuleBasedParser().parse(text)
+        others = [v for v, own in ((rules["customer"], order.customer), (rules["product"], order.product)) if v and v.lower() != own.lower()]
+        return [f"this message also mentions {', '.join(others)}, which is not {order_id}; not handled here"] if others else []
 
     @staticmethod
     def _add_stop_mentions(req: dict, stopped: List[str]) -> None:
@@ -198,7 +284,7 @@ class Desk:
     # ---------------------------------------------------------------- routing
     def route(self, req: dict) -> dict:
         d = {"request_id": req["request_id"], "timestamp": req["timestamp"], "requester": req["requester"],
-             "raw_text": req["raw_text"], "parsed": req, "tool_calls": [], "subtype": None, "order_id": req["order_id"],
+             "raw_text": req.get("source_message") or req["raw_text"], "parsed": req, "tool_calls": [], "subtype": None, "order_id": req["order_id"],
              "recommended": None, "candidates": [], "eligibility": [], "explanation": "", "committed": None,
              "flags": [], "batch": None, "order_candidates": [], "refused_workshop": None}
 
@@ -214,6 +300,24 @@ class Desk:
                                 f"goes there, and {len(batches)} dispatched {'batch' if len(batches) == 1 else 'batches'} there can be re-dispatched.")
             if reported in self.stopped:
                 d["explanation"] = f"{self.name(reported)} is reported as stopped; it is already marked as stopped."
+            if req.get("held_orders"):
+                d["explanation"] += f" The message says {', '.join(req['held_orders'])} are held there."
+            return d
+
+        # several batches and no order numbers: say what was heard and ask, do not guess which orders they are
+        if req.get("multi_batches"):
+            d["subtype"] = "ambiguous_reference"
+            d["tool_calls"].append({"tool": "message_batches", "output": {"count": len(req["multi_batches"]), "batches": req["multi_batches"]}})
+            d["explanation"] = (f"This message mentions {len(req['multi_batches'])} batches: {'; '.join(req['multi_batches'])}. "
+                                "Which orders are they? Please send each with its order number.")
+            return d
+
+        # several order numbers and words like "not", "already", "don't": ask which are to be sent
+        if req.get("unsure_orders"):
+            d["subtype"] = "ambiguous_reference"
+            d["tool_calls"].append({"tool": "message_orders", "output": {"orders": req["unsure_orders"]}})
+            d["explanation"] = (f"This message names {', '.join(req['unsure_orders'])}, but may not be asking to send them all. "
+                                "Which of them should go out now? Please resend those order numbers.")
             return d
 
         # 1. questions the data cannot answer
@@ -450,6 +554,7 @@ class Desk:
         d["official_behaviour"] = OFFICIAL[d["subtype"]]
         d["status"] = STATUS[d["subtype"]]
         d["number_check"] = number_check(d["explanation"], d["tool_calls"], d.get("batch"), req)
+        d["flags"] += req.get("extra_notes", [])
         d["stop_mentions"] = [w for w in req.get("stop_mentions", []) if w not in self.stopped]
         d["flags"] += [f"message says {self.name(w)} may have stopped; kept out of this request until someone confirms" for w in d["stop_mentions"]]
         src = self.pending_stops().get(d["recommended"])
@@ -459,17 +564,24 @@ class Desk:
 
     # ---------------------------------------------------------------- dispatcher API
     def propose(self, line: str) -> dict:
-        """Route one chat line. Writes nothing to the ledger."""
-        req = self._parse(line)
+        """Route one chat line. Writes nothing to the ledger. A line with several orders becomes several decisions;
+        the first is returned and the rest are in self.decisions."""
+        self.last_proposed = [self._propose_one(req) for req in self._parse_all(line)]
+        return self.last_proposed[0]
+
+    def _propose_one(self, req: dict) -> dict:
         if not req.get("request_id"):
             req["request_id"] = self.next_request_id()
         self.arrival[req["request_id"]] = len(self.arrival)
         d = self._finish(self.route(req), req)
         if req["constraint_scope"] == "session" and not req.get("stop_report"):
             for wid in [w for w in req["excluded_workshops"] if w not in req.get("stop_added", [])]:
+                said_once = req.get("source_message")       # one ban in a message split into several cards
+                if said_once and self.session_excl.get(wid, {}).get("message") == said_once:
+                    continue
                 by = "Boss" if re.search(r"\bboss\b", req["raw_text"], re.I) else req["requester"]
                 self.session_excl[wid] = {"by": by, "source": req["request_id"], "time": req.get("timestamp") or "",
-                                          "seq": self.arrival[req["request_id"]]}
+                                          "seq": self.arrival[req["request_id"]], "message": said_once}
                 d["flags"].append(f"session constraint recorded: exclude {self.name(wid)} (by {by})")
         d["received_at"] = datetime.now().isoformat(timespec="seconds")
         d["as_received"] = {"subtype": d["subtype"], "recommended": d["recommended"]}
@@ -500,6 +612,7 @@ class Desk:
             self.refresh(rid)
 
     def new_message(self, sender: str, text: str) -> dict:
+        text = re.sub(r"\s*\n\s*", ". ", text.strip())     # a request line is one line; a line break ends a sentence
         line = f"{self.next_request_id()} [{datetime.now():%H:%M}] {sender}: {text}"
         return self.propose(line)
 
@@ -507,9 +620,15 @@ class Desk:
         """The requester's answer to a clarifying question, processed as a new message."""
         d = self.decisions[request_id]
         new = self.new_message(d["requester"], text)
-        if d["parsed"].get("stop_mentions"):        # the answer does not repeat that a shop has stopped
-            self._add_stop_mentions(new["parsed"], d["parsed"]["stop_mentions"])
-            new = self.refresh(new["request_id"])
+        cards = list(self.last_proposed)
+        asked = d["parsed"].get("multi_batches") or []
+        for card in cards:
+            if d["parsed"].get("stop_mentions"):    # the answer does not repeat that a shop has stopped
+                self._add_stop_mentions(card["parsed"], d["parsed"]["stop_mentions"])
+            if len(asked) > len(cards):
+                card["parsed"].setdefault("extra_notes", []).append(f"the question was about {', '.join(asked)}; this answer covers {len(cards)}; not handled here")
+            self.refresh(card["request_id"])
+        new = self.decisions[new["request_id"]]
         new["flags"].append(f"answer to {request_id}")
         d["status"] = "reply_sent"
         d["follow_up"] = new["request_id"]
@@ -700,10 +819,11 @@ class Desk:
 
     def handle(self, line: str) -> dict:
         """Propose, and auto-confirm when there is an on-time option (unattended replay)."""
-        d = self.propose(line)
-        if d["subtype"] == "allocate":
-            self.confirm(d["request_id"], by="demo-dispatcher")
-        return self.decisions[d["request_id"]]
+        first = self.propose(line)
+        for d in list(self.last_proposed):
+            if d["subtype"] == "allocate":
+                self.confirm(d["request_id"], by="demo-dispatcher")
+        return self.decisions[first["request_id"]]
 
 
 NUM_RE = re.compile(r"(?<![A-Za-z\-])\d+(?:\.\d+)?")

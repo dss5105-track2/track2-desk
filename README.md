@@ -41,7 +41,7 @@ Copy `.env.example` to `.env` and set `OPENAI_API_KEY`. `.env` is git-ignored; n
 python -m pytest -q
 ```
 
-120 tests should pass.
+238 tests should pass.
 
 | Command | What it does |
 |---|---|
@@ -65,6 +65,7 @@ flowchart LR
 - **The model only reads.** Dates, queues and comparisons come from code tools, specified in [`docs/tool_spec.md`](docs/tool_spec.md).
 - **Four replies:** dispatch, ask back, refuse with a reason and an alternative, or say the data cannot answer.
 - **Nothing is booked until the dispatcher confirms.**
+- **One message can carry several orders.** Each order number gets its own card, showing the whole message. If the orders are only listed, a shop or ban in the message applies to all of them; if each is followed by its own words, those stay with it. Anything else is not applied: the order book's values stand and the card says to read the message. Words like "not", "already" or "don't" beside several orders get a question instead. Several batches with no order numbers get a question, not a guess.
 - **A workshop can stop.** Report it in chat ("GiantWeave has shut for two weeks") or on the Workshops tab. Once the dispatcher confirms, no new work goes there, open requests are re-ranked, and batches already there can be moved in one click, within what their own request allowed.
 - **The objective is a setting.** The interface offers three:
 
@@ -112,6 +113,7 @@ Records: [`first_run.md`](eval/heldout/first_run.md), [`second_run.md`](eval/hel
 ## Known limitations
 
 - **Closure handling relies on someone reporting it.** The desk has no feed of real queues, so it does not notice a stop by itself. A queue-based detector exists only as a simulator experiment and is not a default: even perfect knowledge of the closure lowers lateness by under 0.1 points. See [`closure_detection.md`](experiments/simulator_assumptions/closure_detection.md).
+- **Several tasks in one message are only partly handled.** Splitting uses patterns on order numbers, so unusual wording can still be misread; a person confirms every card. A second batch beside one order, or a question on another topic, is flagged when recognised but not acted on. The evaluation sets contain no message with two order numbers, so this has targeted tests and independent review but no clean score.
 - **Stop reports are matched by patterns**, in code and not by the model, so unusual wording is missed. A person confirms every stop, because a pattern cannot tell a real closure from a rumour. Duration ("for two weeks") is not read, and dates already promised at a stopped workshop are not recalculated.
 - **Seven-day calendar: working days are not implemented.** Estimates assume a seven-day week, as the simulator does. A Sunday-closed variant exists only as an experiment (`experiments/scripts/exp_sunday.py`): the simple rule rises to 3.67% late.
 - **One message, two problems.** Messages that both name an ineligible workshop and repeat a dispatch (H41, H42) get "already sent?" where the labels say refuse. The labelling rules did not set an order, and this is not fixed.
@@ -134,7 +136,7 @@ eval/          Protocol, labelling guide, labels, scoring scripts, independent d
 eval/heldout/  Frozen held-out inbox and the records of each run
 experiments/   Scripts and results behind the numbers above, challenge set, failure cases
 docs/          Tool specification, architecture, interface guide, user test tasks, factory primer, round-2 history
-tests/         120 automated tests
+tests/         238 automated tests
 ```
 
 Some working documents are in Chinese, including the held-out run records, the interface guide and the evaluation protocol.
