@@ -112,6 +112,17 @@ class Desk:
             notes.append(f"chat due date {req['due_date']} differs from orders.csv {order.due_date}")
         return notes
 
+    def _forced_problem(self, wid: str, batch: dict) -> str:
+        """Why the workshop a message names cannot take this batch; '' if it can."""
+        ok, why = check_eligibility(self.W[wid], batch["category"], batch["pieces"])
+        if not ok:
+            return why
+        if wid in self.stopped:
+            return "it is reported as stopped"
+        if wid in self.session_excl:
+            return f"{self.session_excl[wid]['by']} said nothing new goes to it ({self.session_excl[wid]['source']})"
+        return ""
+
     def _identity_clash(self, order, req) -> str:
         """The customer or product the message names, when it is not this order's: the id is probably mistyped. '' when they agree.
         Piece count and date differences stay flags (_mismatch_notes); the labelling rules do not stop on them."""
@@ -412,7 +423,17 @@ class Desk:
         conflict = [f for f in flags if "COMPLETE" in f or "already dispatched" in f]
         if conflict:
             d["subtype"] = "state_conflict"
-            d["explanation"] = f"Before I place {order.order_id}: {conflict[0]}. Do you still want it sent outside?"
+            d["explanation"] = f"Before I place {order.order_id}: {'; '.join(conflict)}. Do you still want it sent outside?"
+            # one message, two problems: say both and let the dispatcher decide; neither hides the other
+            batch = self._batch(order, req)
+            shop = req["forced_workshop"] or req.get("stop_forced")
+            why = self._forced_problem(shop, batch) if req["forced_workshop"] else ("it is reported as stopped" if shop else "")
+            if why:
+                d["refused_workshop"] = shop
+                d["tool_calls"].append({"tool": "eligibility_table", "input": {"category": batch["category"], "pieces": batch["pieces"]},
+                                        "output": eligibility_table(self.W, batch["category"], batch["pieces"])})
+                d["explanation"] = (f"Two problems with {order.order_id}: {'; '.join(conflict)}. Also, {self.name(shop)} can't take it: {why}. "
+                                    "Do you still want it sent outside, and to which workshop?")
             return d
 
         # 4. missing information the order book can't fill
@@ -460,12 +481,8 @@ class Desk:
         # 5. ineligible suggestion
         fw = req["forced_workshop"]
         if fw:
-            ok, why = check_eligibility(self.W[fw], batch["category"], batch["pieces"])
-            if ok and fw in self.stopped:
-                ok, why = False, "it is reported as stopped"
-            elif ok and fw in self.session_excl:
-                ok, why = False, f"{self.session_excl[fw]['by']} said nothing new goes to it ({self.session_excl[fw]['source']})"
-            if not ok:
+            why = self._forced_problem(fw, batch)
+            if why:
                 d["subtype"] = "ineligible_suggestion"
                 d["recommended"] = ests[0].workshop_id if ests else None
                 d["refused_workshop"] = fw
