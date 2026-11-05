@@ -42,10 +42,10 @@ from kernel.orders import load_orders, find_orders, last_week, state_checks, TOD
 from kernel.allocator import Allocator, OBJECTIVES, flexibility  # noqa: E402
 from kernel.estimator import estimate, split_estimate  # noqa: E402
 from kernel.ledger import Ledger  # noqa: E402
-from desk.multi_orders import (ALSO_RE, DISPATCH_WORD_RE, NOT_A_REQUEST_RE, looks_like_dispatch, normalise_ids, other_batches,  # noqa: E402
+from desk.multi_orders import (ALSO_RE, DISPATCH_WORD_RE, NOT_A_REQUEST_RE, clauses_apart, has_details, status_question, without_details, looks_like_dispatch, normalise_ids, other_batches,  # noqa: E402
                                split_orders, suspect_ids, take_held, unhandled_question)
 from desk.stop_reports import asks_nothing, read_stops  # noqa: E402
-from llm.llm_client import RuleBasedParser, LLMClient, order_ids, parse_header  # noqa: E402
+from llm.llm_client import ORD_RE, RuleBasedParser, LLMClient, order_ids, parse_header  # noqa: E402
 
 OFFICIAL = {"allocate": "extract", "no_on_time_option": "extract", "ambiguous_reference": "clarify",
             "missing_fields": "clarify", "state_conflict": "clarify", "ineligible_suggestion": "refuse",
@@ -169,9 +169,10 @@ class Desk:
         if rid:
             self.taken_ids.add(rid)
         question = unhandled_question(rest)
-        asked_too = bool(question and DISPATCH_WORD_RE.search(rest.replace(question, "")))
+        asked_too = bool(question and (DISPATCH_WORD_RE.search(rest.replace(question, "")) or status_question(question)))
         if asked_too:       # read the request alone, or the question would hide it
             rest, line = rest.replace(question, "").strip(), line.replace(question, "")
+            ids = list(dict.fromkeys(order_ids(rest)))
         rules = RuleBasedParser().parse(rest)
         if len(ids) >= 2 and looks_like_dispatch(rest, rules["question_type"]):
             parts, unclear, extras = split_orders(rest)
@@ -191,7 +192,8 @@ class Desk:
                     req["extra_notes"].append(f"this message also mentions {', '.join(extras)}; not handled here")
                 if unread:
                     req["extra_notes"].append("this message may name more orders than could be read; please check")
-                req["extra_notes"] += self._other_customer_note(oid, part, rest)
+                aside = self._set_aside_other_batch(oid, part, req)
+                req["extra_notes"] += aside or self._other_customer_note(oid, part, rest)
                 if stopped:
                     self._add_stop_mentions(req, stopped)
                 reqs.append(req)
@@ -200,7 +202,11 @@ class Desk:
         req["raw_text"] = text
         notes = req.setdefault("extra_notes", [])
         batches = other_batches(rest)
-        if len(ids) >= 2:
+        aside = self._set_aside_other_batch(ids[0], rest, req) if len(ids) == 1 else []
+        notes += aside
+        if aside:
+            pass
+        elif len(ids) >= 2:
             notes.append(f"this message also names {', '.join(ids[1:])}; not handled here")
             if rules["question_type"] == "allocation" and NOT_A_REQUEST_RE.search(rest) and not stopped:
                 req["unsure_orders"] = ids
@@ -218,6 +224,30 @@ class Desk:
         if question and (asked_too or rules["question_type"] == "allocation"):
             notes.append(f"this message also asks something not handled here: \"{question}\"")
         return [req]
+
+    def _set_aside_other_batch(self, order_id: str, text: str, req: dict) -> List[str]:
+        """A quantity or date said apart from the order number, beside another customer or product, is not this order's: leave it
+        off the card and say so. Details written right on the number stay, as a difference the card flags (_mismatch_notes)."""
+        order = self.O.get(order_id)
+        if not order or req["question_type"] != "allocation":
+            return []
+        kept, other = [], []
+        for clause in clauses_apart(text):
+            said = RuleBasedParser().parse(clause) if has_details(clause) and not ORD_RE.search(clause) else None
+            if said and (other or self._names_something_else(order, said)):
+                other.append(clause.strip(" ,.;"))
+                clause = without_details(clause) + " "
+            kept.append(clause)
+        if not other:
+            return []
+        clean = RuleBasedParser().parse("".join(kept))
+        req["pieces"], req["due_date"] = clean["pieces"], clean["due_date"]
+        req["customer"], req["product"] = None, None
+        return [f"this message also mentions \"{', '.join(other)}\", which is not {order_id}; not applied, so the order book's values are used where the message gave none"]
+
+    @staticmethod
+    def _names_something_else(order, said: dict) -> bool:
+        return any(v and v.lower() != own.lower() for v, own in ((said["customer"], order.customer), (said["product"], order.product)))
 
     def _other_customer_note(self, order_id: str, text: str, whole: str) -> List[str]:
         """'ORD-041 and also the Cotton Club vests': something beside this order that the card does not cover."""

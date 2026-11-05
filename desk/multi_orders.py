@@ -23,6 +23,9 @@ DISPATCH_WORD_RE = re.compile(r"\b(?:send\w*|giv\w+|put|place|ship\w*|dispatch\w
                               r"|needs?\s+(?:a\s+|an\s+|to\s+)?(?:shop|workshop|go|leave|be sent|ship))\b", re.I)
 ALSO_RE = re.compile(r"\b(?:and also|plus|as well as|along with|together with|and the)\b", re.I)
 OTHER_TOPIC_RE = re.compile(r"\b(?:price|cost|quoted?|how much|invoice|payment|pay|paid|charged?|margin|revenue|status|how is|how's|how far)\b", re.I)
+ANOTHER_BATCH_RE = re.compile(r"\s*\b(?=(?:also|plus|as well as|along with|together with)\b)", re.I)
+_DONE_WORDS_RE = re.compile(r"\b(?:shipped|sent|dispatched|moved|booked|placed|given|assigned|allocated)\b", re.I)
+STATUS_QUESTION_RE = re.compile(r"^\s*(?:is|are|has|have|did|was|were|where(?:'s| is| are)?|when(?:'s| is| will)?|who has)\b", re.I)
 PCS_RE = re.compile(r"(?<![\w.-])\d[\d,]*\s*(?:pcs|pieces)\b", re.I)
 # order numbers written in a way that cannot be read reliably: "ORD-053-066", "ORD-050 to ORD-053", "ORD-053, 066 and 120"
 SUSPECT_IDS_RE = re.compile(r"\bORD-\d{1,3}\s*(?:-|\u2013|to\b|through\b|thru\b|,|and\b|&|/)\s*(?:ORD-)?(\d{1,3})\b", re.I)
@@ -182,11 +185,26 @@ def other_batches(text: str) -> List[str]:
     return [m.group(0) for m in sorted(found, key=lambda m: m.start()) if not CORRECTED_RE.search(text[:m.start()])]
 
 
+def status_question(clause: str) -> bool:
+    """'Is ORD-066 done?': asks about an order, names no workshop and asks for nothing to be sent."""
+    return bool(clause.rstrip().endswith("?") and STATUS_QUESTION_RE.search(clause) and ORD_RE.search(clause) and not DISPATCH_WORD_RE.search(_DONE_WORDS_RE.sub(" ", clause))
+                and not any(n.lower() in clause.lower() for n in WORKSHOP_NAMES))
+
+
+def clauses_apart(text: str) -> List[str]:
+    """Clauses, with a new one at 'also' or 'plus': 'ORD-053 needs a shop also 300 scarves' has two."""
+    return CLAUSE_RE.findall(ANOTHER_BATCH_RE.sub(", ", text))
+
+
+def without_details(clause: str) -> str:
+    return _without_date(_without_pieces(clause))
+
+
 def unhandled_question(text: str) -> str:
     """A question about something else, beside a request: the clause, or '' if there is none."""
     clauses = CLAUSE_RE.findall(text)
     for clause in clauses:
-        if (clause.rstrip().endswith("?") or re.match(r"\s*what(?:'s| is)\b", clause, re.I)) and OTHER_TOPIC_RE.search(clause) \
+        if (clause.rstrip().endswith("?") or re.match(r"\s*what(?:'s| is)\b", clause, re.I)) and (OTHER_TOPIC_RE.search(clause) or status_question(clause)) \
                 and any(ORD_RE.search(c) or PIECES_RE.search(c) for c in clauses if c is not clause):
             return clause.strip()
     return ""

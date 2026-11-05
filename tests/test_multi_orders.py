@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "harness"))
 
-from desk.multi_orders import split_orders  # noqa: E402
+from desk.multi_orders import status_question, split_orders  # noqa: E402
 from desk.pipeline import Desk  # noqa: E402
 
 
@@ -528,3 +528,87 @@ def test_the_evaluation_sets_are_untouched():
             d = desk.propose(line)
             assert not d["parsed"].get("extra_notes") and not d["parsed"].get("multi_batches"), line
         assert len(desk.decisions) == len(lines), path
+
+
+# ---------------------------------------------------------------- another batch, or a question, inside the message
+@pytest.mark.parametrize("text", ["ORD-053 needs a shop, also 300 scarves for TrendCart due Apr 20",
+                                  "ORD-053 needs a shop also 300 scarves for TrendCart due Apr 20",
+                                  "ORD-053 needs a shop, 300 scarves for TrendCart, due Apr 20"])
+def test_details_said_of_another_customer_stay_off_the_card(text):
+    _, ds = send(text)
+    assert len(ds) == 1 and ds[0]["batch"]["pieces"] == 800 and ds[0]["batch"]["due_date"] == "2026-04-10"
+    assert any("TrendCart" in f and "not applied" in f for f in ds[0]["flags"])
+
+
+def test_details_written_right_on_the_number_stay_as_a_flagged_difference():
+    _, ds = send("ORD-053 - 300 scarves for TrendCart, needs a shop")
+    assert ds[0]["batch"]["pieces"] == 300 and any("chat says 300 pieces" in f for f in ds[0]["flags"]) and not any("not applied" in f for f in ds[0]["flags"])
+
+
+def test_details_of_another_product_stay_off_the_card():
+    _, ds = send("ORD-053 needs a shop, plus 300 scarves due Apr 20")
+    assert ds[0]["batch"]["pieces"] == 800 and any("scarves" in f and "not applied" in f for f in ds[0]["flags"])
+
+
+def test_the_orders_own_details_stay_beside_another_batch():
+    _, ds = send("ORD-053 - 500 polo shirts for UrbanThread, due Apr 12, also 300 scarves for TrendCart")
+    assert ds[0]["batch"]["pieces"] == 500 and ds[0]["batch"]["due_date"] == "2026-04-12"
+    assert any("TrendCart" in f for f in ds[0]["flags"])
+
+
+def test_two_quantities_of_the_same_product_are_flagged():
+    _, ds = send("ORD-053 - 500 polo shirts, 300 polo shirts")
+    assert any("300 polo shirts" in f and "not handled" in f for f in ds[0]["flags"])
+
+
+def test_the_orders_own_customer_and_product_are_not_another_batch():
+    _, ds = send("ORD-053 - 500 polo shirts for UrbanThread, due Apr 12")
+    assert ds[0]["batch"]["pieces"] == 500 and not any("not applied" in f for f in ds[0]["flags"])
+
+
+def test_another_batch_inside_a_split_stays_off_that_card():
+    _, ds = send("ORD-053 500 polo shirts, ORD-066 rush also 300 scarves for TrendCart")
+    assert [d["batch"]["pieces"] for d in ds] == [500, 1000] and any("TrendCart" in f for f in ds[1]["flags"])
+
+
+def test_a_status_question_beside_a_request_is_noted_not_dispatched():
+    _, ds = send("ORD-053 needs a shop. Is ORD-066 done?")
+    assert [d["order_id"] for d in ds] == ["ORD-053"] and any("Is ORD-066 done?" in f and "not handled" in f for f in ds[0]["flags"])
+
+
+def test_the_order_in_a_status_question_is_not_counted_as_a_second_request():
+    _, ds = send("ORD-053 needs a shop. Is ORD-066 done?")
+    assert not any("also names" in f or "one of" in f for f in ds[0]["flags"])
+
+
+def test_a_progress_question_is_left_alone_by_the_other_batch_check():
+    _, ds = send("How far along is ORD-053, due Apr 20 for TrendCart?")
+    assert not any("not applied" in f for f in ds[0]["flags"])
+
+
+@pytest.mark.parametrize("clause, want", [("Is ORD-066 done?", True), ("Has ORD-066 shipped?", True), ("Was ORD-066 sent?", True),
+                                          ("Is ORD-066 ready to ship?", False), ("Did you send ORD-066?", False),
+                                          ("Is ORD-066 at BudgetWorks?", False), ("Is it done?", False), ("Is ORD-066 done", False)])
+def test_what_counts_as_a_status_question(clause, want):
+    assert status_question(clause) is want
+
+
+def test_a_status_question_and_a_ban_beside_a_request():
+    desk, ds = send("ORD-053 needs a shop. Is ORD-066 done? Nothing new to QuickStitch this week.")
+    assert [d["order_id"] for d in ds] == ["ORD-053"] and "W1" in desk.session_excl and any("Is ORD-066 done?" in f for f in ds[0]["flags"])
+
+
+def test_a_status_question_before_a_request():
+    _, ds = send("Has ORD-066 shipped? ORD-053 to BudgetWorks.")
+    assert [(d["order_id"], d["parsed"]["forced_workshop"]) for d in ds] == [("ORD-053", "W3")] and any("Has ORD-066 shipped?" in f for f in ds[0]["flags"])
+
+
+def test_lines_pasted_into_a_one_line_box_still_split():
+    _, ds = send("ORD-053 500 polo shirts due Apr 12 ORD-066 700 polo shirts due Apr 28 ORD-010 to BudgetWorks")
+    assert [(d["order_id"], d["batch"]["pieces"], d["batch"]["due_date"], d["parsed"]["forced_workshop"]) for d in ds] == [
+        ("ORD-053", 500, "2026-04-12", None), ("ORD-066", 700, "2026-04-28", None), ("ORD-010", 1000, "2026-04-25", "W3")]
+
+
+def test_a_pasted_chat_log_applies_nothing_and_says_so():
+    _, ds = send("Ravi: ORD-053 needs a shop\nPriya: ORD-066 to BudgetWorks\nBoss: nothing new to QuickStitch this week")
+    assert [d["parsed"]["forced_workshop"] for d in ds] == [None, None] and all(any("read the message" in f for f in d["flags"]) for d in ds)
