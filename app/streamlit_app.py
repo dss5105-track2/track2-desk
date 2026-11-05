@@ -147,7 +147,8 @@ with st.sidebar:
     has_key = bool(os.getenv("OPENAI_API_KEY") or os.getenv("DESK_LLM_API_KEY"))
     llm_label = (os.getenv("DESK_LLM_MODEL") or DEFAULT_MODEL).replace("gpt-", "GPT-").replace("-mini", " mini").replace("-nano", " nano")
     parser_choice = st.radio("Message parser", ["Rules (free, offline)", llm_label], index=1 if st.session_state.use_llm else 0,
-                             disabled=not has_key, help="Changing the parser starts a new session." if has_key else "Add OPENAI_API_KEY to .env to enable")
+                             key="message_parser", disabled=not has_key,
+                             help="Changing the parser starts a new session." if has_key else "Add OPENAI_API_KEY to .env to enable")
     want_llm = parser_choice == llm_label
     if want_llm != st.session_state.use_llm:
         st.session_state.use_llm = want_llm
@@ -155,18 +156,41 @@ with st.sidebar:
         st.session_state.selected = None
         st.rerun()
 
-    c1, c2 = st.columns(2)
-    if c1.button("Load morning inbox", type="primary", width="stretch", disabled=any(r.startswith("R") for r in desk.decisions)):
-        with st.spinner("Reading 30 messages…"):
-            for ln in inbox_lines():
-                desk.propose(ln)
-        st.session_state.selected = None
-        flash("30 messages received. Nothing is dispatched until you confirm.")
-        st.rerun()
-    if c2.button("Reset", width="stretch"):
-        st.session_state.desk = new_desk(desk.alloc.objective, st.session_state.use_llm)
-        st.session_state.selected = None
-        st.rerun()
+    st.markdown("""<style>
+        @media (min-width: 1100px) {
+            /* Start wide enough for the register; still allow dragging wider. */
+            section[data-testid="stSidebar"][aria-expanded="true"] {
+                min-width: 340px !important;
+            }
+        }
+        .st-key-message_parser p {
+            font-size: 0.875rem;
+        }
+        .st-key-session_actions button {
+            display: flex;
+            height: 40px;
+            min-height: 40px;
+            max-height: 40px;
+            padding: 2px 6px;
+        }
+        .st-key-session_actions button p {
+            font-size: 0.8125rem;
+            line-height: 1rem;
+        }
+    </style>""", unsafe_allow_html=True)
+    with st.container(key="session_actions"):
+        c1, c2 = st.columns(2)
+        if c1.button("Load morning inbox", type="primary", width="stretch", disabled=any(r.startswith("R") for r in desk.decisions)):
+            with st.spinner("Reading 30 messages…"):
+                for ln in inbox_lines():
+                    desk.propose(ln)
+            st.session_state.selected = None
+            flash("30 messages received. Nothing is dispatched until you confirm.")
+            st.rerun()
+        if c2.button("Reset", width="stretch"):
+            st.session_state.desk = new_desk(desk.alloc.objective, st.session_state.use_llm)
+            st.session_state.selected = None
+            st.rerun()
 
     st.subheader("Standing constraints")
     if not desk.session_excl and not desk.stopped:
@@ -179,7 +203,7 @@ with st.sidebar:
             flash(f"{desk.name(wid)} reopened; open requests re-ranked")
             st.rerun()
     for wid, src in list(desk.session_excl.items()):
-        cc1, cc2 = st.columns([3, 1])
+        cc1, cc2 = st.columns([4, 1])
         cc1.markdown(f"⛔ **{desk.name(wid)}** · no new work  \n<small>{src['by']} in {src['source']} at {src.get('time', '')} · applies to every open request</small>",
                      unsafe_allow_html=True)
         if cc2.button("Lift", key=f"lift_{wid}"):
@@ -196,7 +220,8 @@ with st.sidebar:
     st.dataframe(pd.DataFrame([{"Workshop": desk.name(w) + (" 🛑" if w in desk.stopped else " ⛔" if (desk.W[w].status != "ACTIVE" or w in desk.session_excl) else ""),
                                 "Queue": round(v, 1), "Sent": sent.get(w, 0)} for w, v in q.items()]),
                  hide_index=True, width="stretch",
-                 column_config={"Queue": st.column_config.NumberColumn("Queue d", format="%.1f", width=62, help="Days of work the shop is holding now"),
+                 column_config={"Workshop": st.column_config.TextColumn("Workshop", width=170),
+                                "Queue": st.column_config.NumberColumn("Queue d", format="%.1f", width=62, help="Days of work the shop is holding now"),
                                 "Sent": st.column_config.NumberColumn("Sent", format="%d", width=52, help="Pieces confirmed in this session")})
     if st.session_state.get("llm_client"):
         c = st.session_state.llm_client
@@ -258,7 +283,7 @@ def render_card(d: dict) -> None:
     rid = d["request_id"]
     label, color = STATUS_LABEL[d["status"]]
     p = d["parsed"]
-    with st.container(border=True):
+    with st.container(border=True, key="answer_card"):
         h1, h2 = st.columns([4, 2])
         h1.markdown(f"#### {rid} · {d['timestamp']} · {d['requester']}")
         h2.badge(label, color=color)
@@ -441,17 +466,92 @@ def render_card(d: dict) -> None:
 
 with tab_desk:
     # the way in for a new chat message: first thing on the page, not below a long inbox
-    with st.form("new_message", clear_on_submit=True, border=True):
-        st.markdown("**💬 New chat message**")
-        fc1, fc2, fc3 = st.columns([1, 5, 1], vertical_alignment="center")
-        sender = fc1.selectbox("From", SENDERS, label_visibility="collapsed")
-        text = fc2.text_input("Message", placeholder="Type a request as it would appear in the group chat, e.g. ORD-066 — 1000 polo shirts, due Apr 20", label_visibility="collapsed")
-        if fc3.form_submit_button("Send", type="primary", width="stretch") and text.strip():
-            nd = desk.new_message(sender, text.strip())
-            st.session_state.selected = nd["request_id"]
-            st.session_state.group_pending = group_of(nd)
-            st.session_state.scroll_until = time.time() + 3
-            st.rerun()
+    # Scope styling to the composer and inbox controls.
+    st.markdown("""<style>
+        .st-key-dispatch_composer [data-testid="stForm"] {
+            border: 1px solid #2E5496;
+            border-top: 4px solid #2E5496;
+            padding: clamp(1rem, 2vw, 1.5rem);
+        }
+        .st-key-dispatch_composer [data-baseweb="textarea"] {
+            border-color: #d9dee7;
+            border-radius: 0.625rem;
+            background-color: var(--background-color, #ffffff);
+        }
+        .st-key-dispatch_composer textarea {
+            /* Match the 40px sender/button row, then let native autosizing grow. */
+            min-height: 38px !important;
+            line-height: 24px;
+            padding: 7px 12px !important;
+            resize: none;
+            background-color: var(--background-color, #ffffff);
+        }
+        .st-key-dispatch_composer [data-baseweb="select"] > div {
+            border-color: #d9dee7;
+            border-radius: 0.625rem;
+            background-color: var(--background-color, #ffffff);
+        }
+        .st-key-dispatch_composer [data-testid="stFormSubmitButton"] button {
+            min-height: 40px;
+            border-radius: 0.625rem;
+        }
+        .st-key-dispatch_composer [data-testid="InputInstructions"] {
+            /* Keep the one-line draft free of the native shortcut overlay. */
+            display: none;
+        }
+        @supports (field-sizing: content) {
+            .st-key-dispatch_composer textarea {
+                field-sizing: content;
+                height: auto !important;
+                max-height: 240px !important;
+            }
+        }
+        .st-key-dispatch_composer [data-baseweb="textarea"]:focus-within {
+            outline: 2px solid #2E5496;
+            outline-offset: 2px;
+        }
+        .st-key-inbox_groups {
+            container-type: inline-size;
+        }
+        .st-key-inbox_groups button {
+            padding-left: 4px;
+            padding-right: 4px;
+        }
+        .st-key-inbox_groups button p {
+            font-size: 0.8125rem;
+            white-space: nowrap;
+        }
+        @media (min-width: 1100px) {
+            @container (max-width: 480px) {
+                .st-key-inbox_groups button {
+                    padding-left: 2px;
+                    padding-right: 2px;
+                }
+                .st-key-inbox_groups button p {
+                    font-size: clamp(0.71875rem, 2.9cqw, 0.8125rem);
+                }
+            }
+        }
+        .st-key-answer_card {
+            scroll-margin-top: 4rem;
+        }
+    </style>""", unsafe_allow_html=True)
+    with st.container(key="dispatch_composer"):
+        with st.form("new_message", clear_on_submit=True, border=True):
+            st.markdown("### 💬 New chat message")
+            st.caption("Paste a group-chat request. Review the recommendation before confirming any dispatch.")
+            fc1, fc2, fc3 = st.columns([1, 5, 1], vertical_alignment="bottom")
+            sender = fc1.selectbox("From", SENDERS)
+            # CSS field-sizing provides a one-line start in supporting browsers.
+            # Native content sizing is the fallback; values reach Python on submit.
+            text = fc2.text_area("Message", height="content", key="dispatch_message",
+                                 placeholder="Type a chat request…")
+            if fc3.form_submit_button("Send", type="primary", width="stretch") and text.strip():
+                nd = desk.new_message(sender, text.strip())
+                st.session_state.selected = nd["request_id"]
+                st.session_state.group_pending = group_of(nd)
+                st.session_state.scroll_until = time.time() + 3
+                st.rerun()
     impact = desk.stopped_impact()
     if impact:
         with st.container(border=True):
@@ -480,8 +580,11 @@ with tab_desk:
     if st.session_state.get("group") not in dict((k, 1) for k, _, _ in GROUPS):
         st.session_state.group = next((k for k, _, _ in GROUPS if counts[k]), "confirm")
     labels = {k: f"{lab} ({counts[k]})" for k, lab, _ in GROUPS}
-    picked = st.segmented_control("Inbox", [k for k, _, _ in GROUPS], format_func=lambda k: labels[k], default=st.session_state.group,
-                                  key=f"group_ctl_{st.session_state.group}", label_visibility="collapsed")
+    left, right = st.columns([6, 7], gap="large")
+    with left:
+        with st.container(key="inbox_groups"):
+            picked = st.segmented_control("Inbox", [k for k, _, _ in GROUPS], format_func=lambda k: labels[k], default=st.session_state.group,
+                                          key=f"group_ctl_{st.session_state.group}", label_visibility="collapsed", width="stretch")
     if picked and picked != st.session_state.group:
         st.session_state.group = picked
         st.session_state.selected = None
@@ -497,7 +600,6 @@ with tab_desk:
         return (1, margin(c, d) if (c and d.get("batch")) else 99, at)
     view.sort(key=urgency)
 
-    left, right = st.columns([6, 7], gap="large")
     with left:
         if group == "confirm" and view:
             plan = desk.bulk_plan()
@@ -542,13 +644,12 @@ with tab_desk:
         if not rid or rid not in desk.decisions:
             st.caption("Select a message to see the recommendation.")
         else:
-            st.markdown('<div id="answer-card"></div>', unsafe_allow_html=True)
             render_card(desk.decisions[rid])
             # a message was just sent: bring its answer into view (on a phone the card is below the inbox).
             # Kept for a few seconds because switching group reruns the app; the id makes each message's script new, or the browser would not run it again.
             if time.time() < st.session_state.get("scroll_until", 0):
                 components.html(f"<!-- {rid} -->" + """<script>window.parent.eval("[150, 600, 1200].forEach(ms => setTimeout(() => "
-                                + "document.getElementById('answer-card')?.scrollIntoView({block: 'start'}), ms))")</script>""", height=0)
+                                + "document.querySelector('.st-key-answer_card')?.scrollIntoView({block: 'start'}), ms))")</script>""", height=0)
 
 
 # ------------------------------------------------------------------ workshops
