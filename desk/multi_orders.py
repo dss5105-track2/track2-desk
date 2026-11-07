@@ -25,7 +25,15 @@ ALSO_RE = re.compile(r"\b(?:and also|plus|as well as|along with|together with|an
 OTHER_TOPIC_RE = re.compile(r"\b(?:price|cost|quoted?|how much|invoice|payment|pay|paid|charged?|margin|revenue|status|how is|how's|how far)\b", re.I)
 ANOTHER_BATCH_RE = re.compile(r"\s*\b(?=(?:also|plus|as well as|along with|together with)\b)", re.I)
 _DONE_WORDS_RE = re.compile(r"\b(?:shipped|sent|dispatched|moved|booked|placed|given|assigned|allocated)\b", re.I)
-STATUS_QUESTION_RE = re.compile(r"^\s*(?:is|are|has|have|did|was|were|where(?:'s| is| are)?|when(?:'s| is| will)?|who has)\b", re.I)
+STATUS_QUESTION_RE = re.compile(r"^\s*(?:is|are|has|have|did|was|were|where(?:'s| is| are)?|when(?:'s| is| will)?|who has"
+                                r"|ORD-\d{1,3}\s+(?:done|finished|ready|shipped|back|out)\b)", re.I)
+# the sender calls an order off: never a dispatch
+CANCEL_RE = re.compile(r"\b(?:cancel(?:l?ed|s)?|undo|withdrawn?|called? off|call it off|scrap(?:ped)?|no longer need(?:ed)?|don't need)\b", re.I)
+# a date or quantity said in a way the parser does not read; named on the card instead of dropped
+DATE_HINT_RE = re.compile(r"\b(?:due|by|before|deadline(?: is)?|back)\s+(?:on\s+)?((?:(?:next|this|coming)\s+)?(?:mon|tues|wednes|thurs|fri|satur|sun)day"
+                          r"|tomorrow|tonight|next week|(?:the\s+)?end of (?:the\s+)?(?:month|week)|\d{1,2}/\d{1,2}(?:/\d{2,4})?)\b", re.I)
+QTY_HINT_RE = re.compile(r"(?<![\w.-])\d[\d,]*\s*(?:pcs|pieces|units)\b"
+                         r"|\b(?:(?:one|two|three|four|five|six|seven|eight|nine|ten|twelve|fifteen|twenty|thirty|forty|fifty)[\s-]+)?(?:hundred|thousand)\b", re.I)
 PCS_RE = re.compile(r"(?<![\w.-])\d[\d,]*\s*(?:pcs|pieces)\b", re.I)
 # order numbers written in a way that cannot be read reliably: "ORD-053-066", "ORD-050 to ORD-053", "ORD-053, 066 and 120"
 SUSPECT_IDS_RE = re.compile(r"\bORD-\d{1,3}\s*(?:-|\u2013|to\b|through\b|thru\b|,|and\b|&|/)\s*(?:ORD-)?(\d{1,3})\b", re.I)
@@ -50,8 +58,8 @@ def suspect_ids(text: str, known_orders) -> bool:
         whole = "ORD-" in m.group(0)[4:].upper()
         if not whole and f"ORD-{int(m.group(1)):03d}" in known_orders and not PIECES_RE.match(text, m.start(1)) and not PCS_RE.match(text, m.start(1)):
             return True
-        if re.search(r"\b(?:to|through|thru)\b", m.group(0), re.I):
-            return True
+        if re.search(r"\b(?:to|through|thru)\b", m.group(0), re.I) and (whole or f"ORD-{int(m.group(1)):03d}" in known_orders):
+            return True     # "ORD-050 to ORD-053"; not "Change ORD-053 to 600 pieces"
     return False
 
 

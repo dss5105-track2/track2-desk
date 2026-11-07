@@ -42,7 +42,7 @@ from kernel.orders import load_orders, find_orders, last_week, state_checks, TOD
 from kernel.allocator import Allocator, OBJECTIVES, flexibility  # noqa: E402
 from kernel.estimator import estimate, split_estimate  # noqa: E402
 from kernel.ledger import Ledger  # noqa: E402
-from desk.multi_orders import (ALSO_RE, DISPATCH_WORD_RE, NOT_A_REQUEST_RE, clauses_apart, has_details, status_question, without_details, looks_like_dispatch, normalise_ids, other_batches,  # noqa: E402
+from desk.multi_orders import (ALSO_RE, CANCEL_RE, DATE_HINT_RE, DISPATCH_WORD_RE, NOT_A_REQUEST_RE, QTY_HINT_RE, clauses_apart, has_details, status_question, without_details, looks_like_dispatch, normalise_ids, other_batches,  # noqa: E402
                                split_orders, suspect_ids, take_held, unhandled_question)
 from desk.stop_reports import asks_nothing, read_stops  # noqa: E402
 from llm.llm_client import ORD_RE, RuleBasedParser, LLMClient, order_ids, parse_header  # noqa: E402
@@ -165,6 +165,8 @@ class Desk:
         """One parsed request per order number. Whatever cannot be handled is noted on the card, never dropped silently."""
         names = {wid: w.name for wid, w in self.W.items()}
         rid, stamp, who, text = parse_header(line)
+        if normalise_ids(text) != text:         # "ORD053", "ord-053", "ORD 53" are order numbers too
+            line, text = line.replace(text, normalise_ids(text), 1), normalise_ids(text)
         stopped, rest = read_stops(text, names)
         held, rest = take_held(rest) if stopped else ([], rest)
         rest = normalise_ids(rest)
@@ -210,7 +212,15 @@ class Desk:
         if req["question_type"] == "allocation" and status_question(rest):     # "Is ORD-041 done?" asks for no dispatch
             req["question_type"] = "status"
             req["forced_workshop"], req["excluded_workshops"], req["preference"] = None, [], "none"
+        if req["question_type"] == "allocation" and CANCEL_RE.search(rest):    # "Cancel ORD-053" is the opposite of a dispatch
+            req["cancel_request"] = CANCEL_RE.search(rest).group(0)
         notes = req.setdefault("extra_notes", [])
+        if req["question_type"] == "allocation" and req["order_id"]:     # only an order-book value can stand in
+            said_date, said_qty = DATE_HINT_RE.search(rest), QTY_HINT_RE.search(rest)
+            if said_date and not req["due_date"]:
+                notes.append(f"message says \"{said_date.group(1)}\", which I could not read as a date; the order book's due date is used")
+            if said_qty and not req["pieces"]:
+                notes.append(f"message says \"{said_qty.group(0)}\", which I could not read as a quantity; the order book's quantity is used")
         batches = other_batches(rest)
         aside = self._set_aside_other_batch(ids[0], rest, req) if len(ids) == 1 else []
         notes += aside
@@ -361,6 +371,19 @@ class Desk:
             d["tool_calls"].append({"tool": "message_batches", "output": {"count": len(req["multi_batches"]), "batches": req["multi_batches"]}})
             d["explanation"] = (f"This message mentions {len(req['multi_batches'])} batches: {'; '.join(req['multi_batches'])}. "
                                 "Which orders are they? Please send each with its order number.")
+            return d
+
+        # the sender calls the order off: never recommend a dispatch
+        if req.get("cancel_request"):
+            d["subtype"] = "state_conflict"
+            oid = req["order_id"]
+            prior = self.ledger.already_committed(oid) if oid else None
+            d["tool_calls"].append({"tool": "state_checks", "input": oid, "output": [f"message says \"{req['cancel_request']}\""]
+                                    + ([f"already dispatched to {prior['workshop_id']} by {prior['request_id']} ({prior['audit_id']})"] if prior else [])})
+            what = oid or "this order"
+            d["explanation"] = (f"This reads like a cancellation of {what} (\"{req['cancel_request']}\"), so I am not recommending a workshop. "
+                                + (f"It is already dispatched to {self.name(prior['workshop_id'])} ({prior['audit_id']}); to change that, reassign it under Done "
+                                   "and tell the workshop." if prior else "If it should still go out, send it again as a request."))
             return d
 
         # several order numbers and words like "not", "already", "don't": ask which are to be sent

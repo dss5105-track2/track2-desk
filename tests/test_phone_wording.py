@@ -57,3 +57,9 @@ def test_a_question_asking_for_a_dispatch_is_still_a_dispatch(text):
 def test_two_orders_in_a_status_question_name_the_other():
     d = card("Are ORD-041 and ORD-045 done?")
     assert any("ORD-045" in f for f in d["flags"])
+
+
+def test_a_curly_dont_before_several_orders_is_not_split_into_dispatches():
+    desk = Desk()
+    d = desk.new_message("Boss", "Don’t send ORD-053 and ORD-066 today")
+    assert len(desk.decisions) == 1 and d["recommended"] is None

@@ -41,7 +41,7 @@ Copy `.env.example` to `.env` and set `OPENAI_API_KEY`. `.env` is git-ignored; n
 python -m pytest -q
 ```
 
-308 tests should pass.
+337 tests should pass.
 
 | Command | What it does |
 |---|---|
@@ -119,6 +119,8 @@ Records: [`first_run.md`](eval/heldout/first_run.md), [`second_run.md`](eval/hel
 - **One message, two problems.** A message that repeats a dispatch and names a workshop that cannot take the batch now shows both problems and asks the dispatcher. It is scored as clarify, so where the held-out labels say refuse (H41, H42) it still counts as wrong. The labelling rules did not set an order, and the frozen labels were not changed to fit. The earlier ban behind H41 ("Don‘t give SteadyHands more new orders") was typed with a curly apostrophe, which the rule parser used to miss; curly and straight quotes now read the same, so H41 becomes a refusal. That fix came after we had seen the held-out set, so the held-out count after it (37 of 43 reply types, rule parser) is not a clean result.
 - **Status questions are matched by patterns.** A message that only asks how an order is doing ("Is ORD-041 done?", "Where is ORD-041?") gets "progress tracking is outside this desk" and no recommendation. Wordings that start with the order number ("ORD-041 done?") are still read as dispatch requests by the rule parser; GPT-5 mini reads most of them.
 - **Status questions** about a customer with several orders (H03) are declined where the labels say ask back.
+- **Dates and quantities the rule parser cannot read** ("next Friday", "12/4", "1,000 pcs", "eight hundred") are not guessed: the card names them and the order book's value is used. ISO dates (2026-04-12) are read. Unfamiliar workshop short names ("Budget", "QS") are not recognised and not flagged.
+- **Cancellations are not handled here.** "Cancel ORD-053" or "customer cancelled" gets a question and no recommendation; a dispatched batch is changed under Done.
 - **The ledger lives in memory.** It is lost when the session ends unless `audit.json` is downloaded, and it suits one dispatcher.
 - **The decision check under-scores the system.** The frozen answers omit standing exclusions, so honouring one can be marked wrong (H35, H38).
 
@@ -137,7 +139,7 @@ eval/          Protocol, labelling guide, labels, scoring scripts, independent d
 eval/heldout/  Frozen held-out inbox and the records of each run
 experiments/   Scripts and results behind the numbers above, challenge set, failure cases
 docs/          Tool specification, architecture, interface guide, user test tasks, factory primer, round-2 history
-tests/         308 automated tests
+tests/         337 automated tests
 ```
 
 Some working documents are in Chinese, including the held-out run records, the interface guide and the evaluation protocol.

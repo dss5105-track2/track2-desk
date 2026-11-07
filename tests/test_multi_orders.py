@@ -526,10 +526,15 @@ def test_the_evaluation_sets_are_untouched():
     for path in ("data/dispatch_requests.txt", "experiments/language_eval/challenge_set/challenge_requests.txt", "eval/heldout/requests.txt"):
         desk = Desk()
         lines = [ln for ln in (ROOT / path).read_text(encoding="utf-8").splitlines() if ln.strip() and not ln.startswith("#")]
+        unread = []
         for line in lines:
             d = desk.propose(line)
-            assert not d["parsed"].get("extra_notes") and not d["parsed"].get("multi_batches"), line
+            notes = [n for n in d["parsed"].get("extra_notes", []) if "could not read" not in n]
+            unread += [d["request_id"] for n in d["parsed"].get("extra_notes", []) if "could not read" in n]
+            assert not notes and not d["parsed"].get("multi_batches"), line
         assert len(desk.decisions) == len(lines), path
+        # the only unread detail in all three sets: "1000 pieces" (the parser reads "1000 cardigans", not "pieces")
+        assert unread == (["H17"] if "heldout" in path else []), path
 
 
 # ---------------------------------------------------------------- another batch, or a question, inside the message

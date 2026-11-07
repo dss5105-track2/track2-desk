@@ -128,6 +128,13 @@ class RuleBasedParser:
                 r["due_date"] = date(self.year, MONTHS[mon.lower()[:3]], int(day)).isoformat()
             except ValueError:
                 pass
+        else:
+            iso = re.search(r"\b(20\d\d)-(\d\d)-(\d\d)\b", text)
+            if iso:
+                try:
+                    r["due_date"] = date(int(iso.group(1)), int(iso.group(2)), int(iso.group(3))).isoformat()
+                except ValueError:
+                    pass
 
         # workshops: exclusions first, everything else mentioned is a suggestion
         excluded = set()
@@ -156,7 +163,7 @@ class RuleBasedParser:
         if re.search(r"\bwhich workshop did we use\b|\bwhat price\b|\bdid we quote\b|\bwho made\b.*\blast\b|^how many\b|^who (is|was)\b|"
                      r"\bwhat did\b.*\bpay\b|\b(our|the) margin\b|\blast (quarter|year|month)\b.*\?", low):
             r["question_type"] = "information"
-        if re.search(r"any movement|any news|how is|how far along|status", low) and not r["pieces"]:
+        if re.search(r"any movement|any news|news on|any updates?\b|update on|how is|how far along|status|(?:done|finished|ready) yet", low) and not r["pieces"]:
             r["question_type"] = "status"
         if r["question_type"] != "allocation":
             r["forced_workshop"], r["excluded_workshops"], r["preference"] = None, [], "none"
