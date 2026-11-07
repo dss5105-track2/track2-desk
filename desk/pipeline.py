@@ -112,6 +112,12 @@ class Desk:
             notes.append(f"chat due date {req['due_date']} differs from orders.csv {order.due_date}")
         return notes
 
+    @staticmethod
+    def _said_not_to_use(text: str, name: str) -> bool:
+        """'Don’t give X ...', 'no more work to X', 'avoid X': the message may be ruling X out, so never present it as asked for."""
+        neg = r"(?:don['’‘`]?t|do not|not|never|avoid|no (?:more|new)|nothing (?:more|new)|except|but)"
+        return bool(re.search(rf"\b{neg}\b(?:\W+\w+){{0,4}}?\W+{re.escape(name)}\b", text or "", re.I))
+
     def _forced_problem(self, wid: str, batch: dict) -> str:
         """Why the workshop a message names cannot take this batch; '' if it can."""
         ok, why = check_eligibility(self.W[wid], batch["category"], batch["pieces"])
@@ -570,6 +576,18 @@ class Desk:
                     l0 = lifted[0]
                     d["explanation"] += (f" If the ban on {l0.name} were lifted: back {l0.promised_date}"
                                          + (", on time." if l0.on_time else f", {days(l0.late_days)} late."))
+        # the message named a workshop that can take it, but another is recommended: say so and why, never silently
+        named = next((e for e in ests if e.workshop_id == fw), None) if fw else None
+        if named and named.workshop_id != best.workshop_id and not self._said_not_to_use(req["raw_text"], named.name):
+            if named.on_time:
+                why = (f"it would also be on time (back {named.promised_date}"
+                       + ("" if named.safe else f", {named.worst_date} if reworked, which is late")
+                       + f"), but {best.name} ranks higher on the {self.alloc.objective} setting")
+            else:
+                why = (f"it would be back {named.promised_date}, {days(named.late_days)} late"
+                       + ("" if best.on_time else f"; {best.name} is the earliest"))
+            d["flags"].insert(0, f"asked for {named.name}, not recommended: {why}")
+            d["explanation"] += f" You asked for {named.name}: {why}. I recommend {best.name} instead."
         return d
 
     def _why(self, row: dict, pref: Optional[str], best, fastest) -> str:
