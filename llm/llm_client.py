@@ -54,7 +54,8 @@ DATE_RE = re.compile(r"\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*
 DATE_DM_RE = re.compile(r"\b(\d{1,2})(?:st|nd|rd|th)?\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\b", re.I)
 PIECES_RE = re.compile(r"(?<![\w.-])(\d[\d,]*(?:\.\d+)?k?)\s+(polo shirts?|crewneck sweaters?|vests?|hoodies?|polos?|crewnecks?|cardigans?|scarves|scarf|beanies?)\b", re.I)
 EXCLUDE_PATTERNS = [r"keep it away from\s+([A-Za-z &]+)", r"nothing new to\s+([A-Za-z &]+)", r"not\s+([A-Za-z &]+?)\b", r"avoid\s+([A-Za-z &]+)",
-                    r"(?:anyone|anybody|anywhere) but\s+([A-Za-z &]+)", r"don'?t (?:send|give|use)\s+([A-Za-z &]+)",
+                    r"(?:anyone|anybody|anywhere) but\s+([A-Za-z &]+)", r"don['’‘]?t (?:send|give|use)\s+([A-Za-z &]+)",
+                    r"no (?:more|new)\s+(?:work|orders?|jobs?|batches)?\s*(?:to|for)\s+([A-Za-z &]+)",
                     r"([A-Za-z]+(?: [A-Z][a-z]+)?)'s [^.]*?don'?t send them"]
 
 # USD per million tokens (input, output), OpenAI standard tier, checked 2026-09-13 at
@@ -127,6 +128,13 @@ class RuleBasedParser:
                 r["due_date"] = date(self.year, MONTHS[mon.lower()[:3]], int(day)).isoformat()
             except ValueError:
                 pass
+        else:
+            iso = re.search(r"\b(20\d\d)-(\d\d)-(\d\d)\b", text)
+            if iso:
+                try:
+                    r["due_date"] = date(int(iso.group(1)), int(iso.group(2)), int(iso.group(3))).isoformat()
+                except ValueError:
+                    pass
 
         # workshops: exclusions first, everything else mentioned is a suggestion
         excluded = set()
@@ -155,7 +163,7 @@ class RuleBasedParser:
         if re.search(r"\bwhich workshop did we use\b|\bwhat price\b|\bdid we quote\b|\bwho made\b.*\blast\b|^how many\b|^who (is|was)\b|"
                      r"\bwhat did\b.*\bpay\b|\b(our|the) margin\b|\blast (quarter|year|month)\b.*\?", low):
             r["question_type"] = "information"
-        if re.search(r"any movement|any news|how is|how far along|status", low) and not r["pieces"]:
+        if re.search(r"any movement|any news|news on|any updates?\b|update on|how is|how far along|status|(?:done|finished|ready) yet", low) and not r["pieces"]:
             r["question_type"] = "status"
         if r["question_type"] != "allocation":
             r["forced_workshop"], r["excluded_workshops"], r["preference"] = None, [], "none"

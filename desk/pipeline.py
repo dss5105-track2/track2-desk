@@ -42,7 +42,7 @@ from kernel.orders import load_orders, find_orders, last_week, state_checks, TOD
 from kernel.allocator import Allocator, OBJECTIVES, flexibility  # noqa: E402
 from kernel.estimator import estimate, split_estimate  # noqa: E402
 from kernel.ledger import Ledger  # noqa: E402
-from desk.multi_orders import (ALSO_RE, DISPATCH_WORD_RE, NOT_A_REQUEST_RE, clauses_apart, has_details, status_question, without_details, looks_like_dispatch, normalise_ids, other_batches,  # noqa: E402
+from desk.multi_orders import (ALSO_RE, CANCEL_RE, DATE_HINT_RE, DISPATCH_WORD_RE, NOT_A_REQUEST_RE, QTY_HINT_RE, clauses_apart, has_details, status_question, without_details, looks_like_dispatch, normalise_ids, other_batches,  # noqa: E402
                                split_orders, suspect_ids, take_held, unhandled_question)
 from desk.stop_reports import asks_nothing, read_stops  # noqa: E402
 from llm.llm_client import ORD_RE, RuleBasedParser, LLMClient, order_ids, parse_header  # noqa: E402
@@ -57,6 +57,7 @@ STATUS = {"allocate": "awaiting_confirmation", "no_on_time_option": "awaiting_de
           "closure_report": "closure_reported"}
 # statuses a dispatcher can set without touching the ledger
 HUMAN_STATUSES = {"reply_sent", "answer_sent", "escalated", "renegotiating", "dismissed", "closure_confirmed"}
+PLAIN_QUOTES = str.maketrans({"‘": "'", "’": "'", "“": '"', "”": '"'})
 NEW_ORDER_RE = re.compile(r"details to follow|new rush|coming in from", re.I)
 
 
@@ -112,6 +113,12 @@ class Desk:
             notes.append(f"chat due date {req['due_date']} differs from orders.csv {order.due_date}")
         return notes
 
+    @staticmethod
+    def _said_not_to_use(text: str, name: str) -> bool:
+        """'Don’t give X ...', 'no more work to X', 'avoid X': the message may be ruling X out, so never present it as asked for."""
+        neg = r"(?:don['’‘`]?t|do not|not|never|avoid|no (?:more|new)|nothing (?:more|new)|except|but)"
+        return bool(re.search(rf"\b{neg}\b(?:\W+\w+){{0,4}}?\W+{re.escape(name)}\b", text or "", re.I))
+
     def _forced_problem(self, wid: str, batch: dict) -> str:
         """Why the workshop a message names cannot take this batch; '' if it can."""
         ok, why = check_eligibility(self.W[wid], batch["category"], batch["pieces"])
@@ -158,6 +165,8 @@ class Desk:
         """One parsed request per order number. Whatever cannot be handled is noted on the card, never dropped silently."""
         names = {wid: w.name for wid, w in self.W.items()}
         rid, stamp, who, text = parse_header(line)
+        if normalise_ids(text) != text:         # "ORD053", "ord-053", "ORD 53" are order numbers too
+            line, text = line.replace(text, normalise_ids(text), 1), normalise_ids(text)
         stopped, rest = read_stops(text, names)
         held, rest = take_held(rest) if stopped else ([], rest)
         rest = normalise_ids(rest)
@@ -200,7 +209,18 @@ class Desk:
             return reqs
         req = self._parse(line)
         req["raw_text"] = text
+        if req["question_type"] == "allocation" and status_question(rest):     # "Is ORD-041 done?" asks for no dispatch
+            req["question_type"] = "status"
+            req["forced_workshop"], req["excluded_workshops"], req["preference"] = None, [], "none"
+        if req["question_type"] == "allocation" and CANCEL_RE.search(rest):    # "Cancel ORD-053" is the opposite of a dispatch
+            req["cancel_request"] = CANCEL_RE.search(rest).group(0)
         notes = req.setdefault("extra_notes", [])
+        if req["question_type"] == "allocation" and req["order_id"]:     # only an order-book value can stand in
+            said_date, said_qty = DATE_HINT_RE.search(rest), QTY_HINT_RE.search(rest)
+            if said_date and not req["due_date"]:
+                notes.append(f"message says \"{said_date.group(1)}\", which I could not read as a date; the order book's due date is used")
+            if said_qty and not req["pieces"]:
+                notes.append(f"message says \"{said_qty.group(0)}\", which I could not read as a quantity; the order book's quantity is used")
         batches = other_batches(rest)
         aside = self._set_aside_other_batch(ids[0], rest, req) if len(ids) == 1 else []
         notes += aside
@@ -351,6 +371,19 @@ class Desk:
             d["tool_calls"].append({"tool": "message_batches", "output": {"count": len(req["multi_batches"]), "batches": req["multi_batches"]}})
             d["explanation"] = (f"This message mentions {len(req['multi_batches'])} batches: {'; '.join(req['multi_batches'])}. "
                                 "Which orders are they? Please send each with its order number.")
+            return d
+
+        # the sender calls the order off: never recommend a dispatch
+        if req.get("cancel_request"):
+            d["subtype"] = "state_conflict"
+            oid = req["order_id"]
+            prior = self.ledger.already_committed(oid) if oid else None
+            d["tool_calls"].append({"tool": "state_checks", "input": oid, "output": [f"message says \"{req['cancel_request']}\""]
+                                    + ([f"already dispatched to {prior['workshop_id']} by {prior['request_id']} ({prior['audit_id']})"] if prior else [])})
+            what = oid or "this order"
+            d["explanation"] = (f"This reads like a cancellation of {what} (\"{req['cancel_request']}\"), so I am not recommending a workshop. "
+                                + (f"It is already dispatched to {self.name(prior['workshop_id'])} ({prior['audit_id']}); to change that, reassign it under Done "
+                                   "and tell the workshop." if prior else "If it should still go out, send it again as a request."))
             return d
 
         # several order numbers and words like "not", "already", "don't": ask which are to be sent
@@ -570,6 +603,18 @@ class Desk:
                     l0 = lifted[0]
                     d["explanation"] += (f" If the ban on {l0.name} were lifted: back {l0.promised_date}"
                                          + (", on time." if l0.on_time else f", {days(l0.late_days)} late."))
+        # the message named a workshop that can take it, but another is recommended: say so and why, never silently
+        named = next((e for e in ests if e.workshop_id == fw), None) if fw else None
+        if named and named.workshop_id != best.workshop_id and not self._said_not_to_use(req["raw_text"], named.name):
+            if named.on_time:
+                why = (f"it would also be on time (back {named.promised_date}"
+                       + ("" if named.safe else f", {named.worst_date} if reworked, which is late")
+                       + f"), but {best.name} ranks higher on the {self.alloc.objective} setting")
+            else:
+                why = (f"it would be back {named.promised_date}, {days(named.late_days)} late"
+                       + ("" if best.on_time else f"; {best.name} is the earliest"))
+            d["flags"].insert(0, f"asked for {named.name}, not recommended: {why}")
+            d["explanation"] += f" You asked for {named.name}: {why}. I recommend {best.name} instead."
         return d
 
     def _why(self, row: dict, pref: Optional[str], best, fastest) -> str:
@@ -613,6 +658,7 @@ class Desk:
     def propose(self, line: str) -> dict:
         """Route one chat line. Writes nothing to the ledger. A line with several orders becomes several decisions;
         the first is returned and the rest are in self.decisions."""
+        line = line.translate(PLAIN_QUOTES)     # phone keyboards type ’ and ‘; every pattern here expects '
         self.last_proposed = [self._propose_one(req) for req in self._parse_all(line)]
         return self.last_proposed[0]
 

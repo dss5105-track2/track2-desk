@@ -507,11 +507,13 @@ def test_asking_who_can_take_it_is_not_flagged_as_another_question():
 
 # ---------------------------------------------------------------- nothing changes for one order
 def test_scores_on_the_evaluation_sets_are_pinned():
-    """Rule parser, first reply type, sets replayed in order. Splitting must not move any of these counts."""
+    """Rule parser, first reply type, sets replayed in order. Splitting must not move any of these counts.
+    Held-out went from 36 to 37 when curly apostrophes started reading like straight ones (H04's ban now reaches H41);
+    that fix came after we had seen the held-out set, so 37 is not a clean result."""
     import csv
     for path, labels, want in (("data/dispatch_requests.txt", "eval/gold_labels.csv", 30),
                                ("experiments/language_eval/challenge_set/challenge_requests.txt", "experiments/language_eval/challenge_set/challenge_labels.csv", 37),
-                               ("eval/heldout/requests.txt", "eval/heldout/gold_labels.csv", 36)):
+                               ("eval/heldout/requests.txt", "eval/heldout/gold_labels.csv", 37)):
         gold = {r["request_id"]: r["official_behaviour"] for r in csv.DictReader(open(ROOT / labels, encoding="utf-8-sig"))}
         desk = Desk()
         for line in (ROOT / path).read_text(encoding="utf-8").splitlines():
@@ -524,10 +526,15 @@ def test_the_evaluation_sets_are_untouched():
     for path in ("data/dispatch_requests.txt", "experiments/language_eval/challenge_set/challenge_requests.txt", "eval/heldout/requests.txt"):
         desk = Desk()
         lines = [ln for ln in (ROOT / path).read_text(encoding="utf-8").splitlines() if ln.strip() and not ln.startswith("#")]
+        unread = []
         for line in lines:
             d = desk.propose(line)
-            assert not d["parsed"].get("extra_notes") and not d["parsed"].get("multi_batches"), line
+            notes = [n for n in d["parsed"].get("extra_notes", []) if "could not read" not in n]
+            unread += [d["request_id"] for n in d["parsed"].get("extra_notes", []) if "could not read" in n]
+            assert not notes and not d["parsed"].get("multi_batches"), line
         assert len(desk.decisions) == len(lines), path
+        # the only unread detail in all three sets: "1000 pieces" (the parser reads "1000 cardigans", not "pieces")
+        assert unread == (["H17"] if "heldout" in path else []), path
 
 
 # ---------------------------------------------------------------- another batch, or a question, inside the message

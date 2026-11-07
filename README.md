@@ -41,7 +41,7 @@ Copy `.env.example` to `.env` and set `OPENAI_API_KEY`. `.env` is git-ignored; n
 python -m pytest -q
 ```
 
-274 tests should pass.
+337 tests should pass.
 
 | Command | What it does |
 |---|---|
@@ -116,8 +116,11 @@ Records: [`first_run.md`](eval/heldout/first_run.md), [`second_run.md`](eval/hel
 - **Several tasks in one message are only partly handled.** Splitting uses patterns on order numbers, so unusual wording can still be misread; a person confirms every card. A second batch beside one order, or a question on another topic or another order, is flagged when recognised and not acted on; its quantity and date stay off the card. Details written right on the order number are kept and flagged as a difference from the order book, even if the customer is wrong. The evaluation sets contain no message with two order numbers, so this has targeted tests and independent review but no clean score.
 - **Stop reports are matched by patterns**, in code and not by the model, so unusual wording is missed. A person confirms every stop, because a pattern cannot tell a real closure from a rumour. Duration ("for two weeks") is not read, and dates already promised at a stopped workshop are not recalculated.
 - **Seven-day calendar: working days are not implemented.** Estimates assume a seven-day week, as the simulator does. A Sunday-closed variant exists only as an experiment (`experiments/scripts/exp_sunday.py`): the simple rule rises to 3.67% late.
-- **One message, two problems.** A message that repeats a dispatch and names a workshop that cannot take the batch now shows both problems and asks the dispatcher. It is scored as clarify, so where the held-out labels say refuse (H41, H42) it still counts as wrong. The labelling rules did not set an order, and the frozen labels were not changed to fit. The rule parser misses the earlier ban behind H41 ("Don't give SteadyHands more new orders"), so there it shows only the repeat.
+- **One message, two problems.** A message that repeats a dispatch and names a workshop that cannot take the batch now shows both problems and asks the dispatcher. It is scored as clarify, so where the held-out labels say refuse (H41, H42) it still counts as wrong. The labelling rules did not set an order, and the frozen labels were not changed to fit. The earlier ban behind H41 ("Don‘t give SteadyHands more new orders") was typed with a curly apostrophe, which the rule parser used to miss; curly and straight quotes now read the same, so H41 becomes a refusal. That fix came after we had seen the held-out set, so the held-out count after it (37 of 43 reply types, rule parser) is not a clean result.
+- **Status questions are matched by patterns.** A message that only asks how an order is doing ("Is ORD-041 done?", "Where is ORD-041?") gets "progress tracking is outside this desk" and no recommendation. Wordings that start with the order number ("ORD-041 done?") are still read as dispatch requests by the rule parser; GPT-5 mini reads most of them.
 - **Status questions** about a customer with several orders (H03) are declined where the labels say ask back.
+- **Dates and quantities the rule parser cannot read** ("next Friday", "12/4", "1,000 pcs", "eight hundred") are not guessed: the card names them and the order book's value is used. ISO dates (2026-04-12) are read. Unfamiliar workshop short names ("Budget", "QS") are not recognised and not flagged.
+- **Cancellations are not handled here.** "Cancel ORD-053" or "customer cancelled" gets a question and no recommendation; a dispatched batch is changed under Done.
 - **The ledger lives in memory.** It is lost when the session ends unless `audit.json` is downloaded, and it suits one dispatcher.
 - **The decision check under-scores the system.** The frozen answers omit standing exclusions, so honouring one can be marked wrong (H35, H38).
 
@@ -136,7 +139,7 @@ eval/          Protocol, labelling guide, labels, scoring scripts, independent d
 eval/heldout/  Frozen held-out inbox and the records of each run
 experiments/   Scripts and results behind the numbers above, challenge set, failure cases
 docs/          Tool specification, architecture, interface guide, user test tasks, factory primer, round-2 history
-tests/         274 automated tests
+tests/         337 automated tests
 ```
 
 Some working documents are in Chinese, including the held-out run records, the interface guide and the evaluation protocol.
