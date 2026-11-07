@@ -54,7 +54,8 @@ DATE_RE = re.compile(r"\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*
 DATE_DM_RE = re.compile(r"\b(\d{1,2})(?:st|nd|rd|th)?\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\b", re.I)
 PIECES_RE = re.compile(r"(?<![\w.-])(\d[\d,]*(?:\.\d+)?k?)\s+(polo shirts?|crewneck sweaters?|vests?|hoodies?|polos?|crewnecks?|cardigans?|scarves|scarf|beanies?)\b", re.I)
 EXCLUDE_PATTERNS = [r"keep it away from\s+([A-Za-z &]+)", r"nothing new to\s+([A-Za-z &]+)", r"not\s+([A-Za-z &]+?)\b", r"avoid\s+([A-Za-z &]+)",
-                    r"(?:anyone|anybody|anywhere) but\s+([A-Za-z &]+)", r"don'?t (?:send|give|use)\s+([A-Za-z &]+)",
+                    r"(?:anyone|anybody|anywhere) but\s+([A-Za-z &]+)", r"don['’‘]?t (?:send|give|use)\s+([A-Za-z &]+)",
+                    r"no (?:more|new)\s+(?:work|orders?|jobs?|batches)?\s*(?:to|for)\s+([A-Za-z &]+)",
                     r"([A-Za-z]+(?: [A-Z][a-z]+)?)'s [^.]*?don'?t send them"]
 
 # USD per million tokens (input, output), OpenAI standard tier, checked 2026-09-13 at

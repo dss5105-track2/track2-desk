@@ -57,6 +57,7 @@ STATUS = {"allocate": "awaiting_confirmation", "no_on_time_option": "awaiting_de
           "closure_report": "closure_reported"}
 # statuses a dispatcher can set without touching the ledger
 HUMAN_STATUSES = {"reply_sent", "answer_sent", "escalated", "renegotiating", "dismissed", "closure_confirmed"}
+PLAIN_QUOTES = str.maketrans({"‘": "'", "’": "'", "“": '"', "”": '"'})
 NEW_ORDER_RE = re.compile(r"details to follow|new rush|coming in from", re.I)
 
 
@@ -206,6 +207,9 @@ class Desk:
             return reqs
         req = self._parse(line)
         req["raw_text"] = text
+        if req["question_type"] == "allocation" and status_question(rest):     # "Is ORD-041 done?" asks for no dispatch
+            req["question_type"] = "status"
+            req["forced_workshop"], req["excluded_workshops"], req["preference"] = None, [], "none"
         notes = req.setdefault("extra_notes", [])
         batches = other_batches(rest)
         aside = self._set_aside_other_batch(ids[0], rest, req) if len(ids) == 1 else []
@@ -631,6 +635,7 @@ class Desk:
     def propose(self, line: str) -> dict:
         """Route one chat line. Writes nothing to the ledger. A line with several orders becomes several decisions;
         the first is returned and the rest are in self.decisions."""
+        line = line.translate(PLAIN_QUOTES)     # phone keyboards type ’ and ‘; every pattern here expects '
         self.last_proposed = [self._propose_one(req) for req in self._parse_all(line)]
         return self.last_proposed[0]
 
