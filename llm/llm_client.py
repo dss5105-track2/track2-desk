@@ -409,16 +409,21 @@ def ground(r: Dict, text: str, prior: Optional[List[Dict]] = None) -> Dict:
         setv("pieces", None, "that number is not in the text")
 
     if r.get("due_date"):
-        ok = False
+        ok, numeric_only = False, None
         try:
             d = date.fromisoformat(r["due_date"])
             months = {MONTHS[m.lower()[:3]] for m in re.findall(r"\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b", low)}
             days = {int(x) for x in re.findall(r"(?<![\w-])(\d{1,2})(?:st|nd|rd|th)?\b", low)}
             ok = d.day in days and (not months or d.month in months)
+            numeric_only = not months and re.search(r"\b\d{1,2}[/.]\d{1,2}\b", text)     # "12/4": 12 April or 4 December?
+            if r["due_date"] in text:
+                ok = True
+            elif ok and numeric_only:
+                ok = False
         except ValueError:
             pass
         if not ok:
-            setv("due_date", None, "no such date in the text")
+            setv("due_date", None, "a date written only in numbers is ambiguous" if numeric_only else "no such date in the text")
     if not r.get("due_date") and r.get("question_type") == "allocation" and not DATE_PENDING_RE.search(text):
         plain = {(m.group(1).lower()[:3], int(m.group(2))) for m in PLAIN_DATE_RE.finditer(text)}
         if len(plain) == 1:
