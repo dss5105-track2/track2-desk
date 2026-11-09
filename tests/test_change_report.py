@@ -69,3 +69,14 @@ def test_nothing_changed_gives_empty_lists():
     desk = morning(confirm=False)
     report = desk.lift_constraint("W7")["changes"]          # no constraint on OldMill: nothing to lift
     assert report["open_changed"] == [] and report["dispatched"] == []
+
+
+def test_a_lift_right_after_a_ban_message_reports_against_fresh_cards():
+    """A ban said in a message is only previewed; lifting it must compare against re-ranked cards, as the interface shows them."""
+    def run(refresh_first):
+        desk = morning(confirm=False)
+        desk.new_message("Boss", "Don’t send anything new to GiantWeave this week, and ORD-053 needs a shop")
+        if refresh_first:
+            desk.refresh_all()
+        return {c["request_id"] for c in desk.lift_constraint("W5")["changes"]["open_changed"]}
+    assert run(False) == run(True) and len(run(True)) > 1
