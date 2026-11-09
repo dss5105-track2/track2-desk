@@ -74,6 +74,7 @@ class Desk:
         self.parser = parser or RuleBasedParser().parse
         self.session_excl: Dict[str, dict] = {}     # workshop_id -> {"by", "source"}
         self.stopped: Dict[str, dict] = {}          # workshop_id -> {"by", "source", "time"}; set only by a person's confirmation
+        self.last_change: Optional[dict] = None     # what the latest constraint change did; see _change_report()
         self.history: List[dict] = []               # parsed requests, for cross-message memory
         self.decisions: Dict[str, dict] = {}
         self.actions: List[dict] = []               # every human action, ledger or not
@@ -667,6 +668,7 @@ class Desk:
             req["request_id"] = self.next_request_id()
         self.arrival[req["request_id"]] = len(self.arrival)
         d = self._finish(self.route(req), req)
+        before, banned = self._open_snapshot(), []
         if req["constraint_scope"] == "session" and not req.get("stop_report"):
             for wid in [w for w in req["excluded_workshops"] if w not in req.get("stop_added", [])]:
                 said_once = req.get("source_message")       # one ban in a message split into several cards
@@ -676,6 +678,10 @@ class Desk:
                 self.session_excl[wid] = {"by": by, "source": req["request_id"], "time": req.get("timestamp") or "",
                                           "seq": self.arrival[req["request_id"]], "message": said_once}
                 d["flags"].append(f"session constraint recorded: exclude {self.name(wid)} (by {by})")
+                banned.append(wid)
+        if banned:      # report what the ban will change, without rewriting answers given earlier (in-order replay stays as it was)
+            after = {rid: self._finish(self.route(self.decisions[rid]["parsed"]), self.decisions[rid]["parsed"]) for rid in before}
+            self._change_report(before, f"{req['request_id']} added a constraint: no new work to {', '.join(self.name(w) for w in banned)}", after)
         d["received_at"] = datetime.now().isoformat(timespec="seconds")
         d["as_received"] = {"subtype": d["subtype"], "recommended": d["recommended"]}
         self.history.append(req)
@@ -817,18 +823,22 @@ class Desk:
         """A person confirmed the workshop has stopped: no new work goes there until reopen()."""
         if workshop_id in self.stopped:
             return
+        before = self._open_snapshot()
         self.stopped[workshop_id] = {"by": by, "source": source or "dispatcher", "time": f"{datetime.now():%H:%M}"}
         self._log(source, "mark_stopped", by, self.name(workshop_id))
         self.refresh_all()
+        self._change_report(before, f"marked {self.name(workshop_id)} as stopped")
 
     def reopen(self, workshop_id: str, by: str = "dispatcher") -> None:
         """Ends a stop, and what messages ruled out because of it. A ban on the same workshop is separate and stays."""
+        before = self._open_snapshot()
         self.stopped.pop(workshop_id, None)
         for d in self.decisions.values():
             self._clear_stop_mention(d["parsed"], workshop_id)
             d["stop_mentions"] = [w for w in d.get("stop_mentions", []) if w != workshop_id]
         self._log(None, "reopen", by, self.name(workshop_id))
         self.refresh_all()
+        self._change_report(before, f"reopened {self.name(workshop_id)}")
 
     def dismiss_stop_mention(self, request_id: str, workshop_id: str, by: str = "dispatcher") -> dict:
         """The dispatcher says the message was wrong, or was misread: the shop can take this request after all."""
@@ -861,10 +871,48 @@ class Desk:
         return rows
 
     def lift_constraint(self, workshop_id: str, by: str = "dispatcher") -> dict:
+        before = self._open_snapshot()
         src = self.session_excl.pop(workshop_id, None)
         self._log(src["source"] if src else None, "lift_constraint", by, f"{self.name(workshop_id)} (set by {src['by'] if src else '-'})")
         self.refresh_all()
-        return {"workshop_id": workshop_id, "was": src, "lifted_by": by}
+        changes = self._change_report(before, f"lifted the constraint on {self.name(workshop_id)}") if src else \
+            self._remember({"cause": f"no constraint on {self.name(workshop_id)} to lift", "open_changed": [], "dispatched": []})
+        return {"workshop_id": workshop_id, "was": src, "lifted_by": by, "changes": changes}
+
+    # ---- what a constraint change did (user testing: the change was invisible, and dispatched batches seemed forgotten)
+    def _open_snapshot(self) -> Dict[str, dict]:
+        return {k: {"subtype": d["subtype"], "recommended": d["recommended"]} for k, d in self.decisions.items() if self.is_open(d)}
+
+    def _remember(self, report: dict) -> dict:
+        self.last_change = report
+        return report
+
+    def _change_report(self, before: Dict[str, dict], cause: str, after: Optional[Dict[str, dict]] = None) -> dict:
+        """Open requests whose answer changed, and every dispatched batch, which is never changed automatically, with what
+        now puts it at risk: its workshop stopped or under a ban, or an estimate that is late, or late if reworked."""
+        changed = []
+        for rid, was in before.items():
+            d = (after or {}).get(rid) or self.decisions.get(rid)
+            if d and self.is_open(self.decisions[rid]) and (d["subtype"], d["recommended"]) != (was["subtype"], was["recommended"]):
+                changed.append({"request_id": rid, "order_id": d["order_id"], "before": was,
+                                "after": {"subtype": d["subtype"], "recommended": d["recommended"]}})
+        dispatched = []
+        for r in self.ledger.records:
+            if r["status"] != "committed":
+                continue
+            wid, est, risks = r["workshop_id"], r["estimate"], []
+            if wid in self.stopped:
+                risks.append(f"{self.name(wid)} is stopped; move the batch under Workshops")
+            elif wid in self.session_excl:
+                src = self.session_excl[wid]
+                risks.append(f"{self.name(wid)}: no new work ({src['by']} in {src['source']}); this batch is already there and was not moved")
+            if not est.get("on_time", True):
+                risks.append(f"late: back {est['promised_date']}, due {r['due_date']}")
+            elif not est.get("safe", True):
+                risks.append(f"late if reworked: back {est.get('worst_date')} if reworked, due {r['due_date']}")
+            dispatched.append({"request_id": r["request_id"], "order_id": r["order_id"], "workshop_id": wid,
+                               "audit_id": r["audit_id"], "risks": risks})
+        return self._remember({"cause": cause, "open_changed": changed, "dispatched": dispatched})
 
     def bulk_plan(self, only_safe: bool = True) -> dict:
         """Which open on-time recommendations a bulk confirm would take, on the ledger as it stands.
