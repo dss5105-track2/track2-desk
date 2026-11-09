@@ -23,6 +23,7 @@ def morning(confirm=True):
 
 def test_lifting_a_constraint_lists_the_open_requests_that_changed():
     desk = morning()
+    desk.refresh_all()      # as the interface does on every page: changes from the confirmations above are not the lift's
     before = {k: d["recommended"] for k, d in desk.decisions.items() if desk.is_open(d)}
     report = desk.lift_constraint("W1")["changes"]
     changed = {c["request_id"]: c for c in report["open_changed"]}
