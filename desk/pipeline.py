@@ -823,6 +823,7 @@ class Desk:
         """A person confirmed the workshop has stopped: no new work goes there until reopen()."""
         if workshop_id in self.stopped:
             return
+        self.refresh_all()
         before = self._open_snapshot()
         self.stopped[workshop_id] = {"by": by, "source": source or "dispatcher", "time": f"{datetime.now():%H:%M}"}
         self._log(source, "mark_stopped", by, self.name(workshop_id))
@@ -831,6 +832,7 @@ class Desk:
 
     def reopen(self, workshop_id: str, by: str = "dispatcher") -> None:
         """Ends a stop, and what messages ruled out because of it. A ban on the same workshop is separate and stays."""
+        self.refresh_all()
         before = self._open_snapshot()
         self.stopped.pop(workshop_id, None)
         for d in self.decisions.values():
@@ -871,6 +873,7 @@ class Desk:
         return rows
 
     def lift_constraint(self, workshop_id: str, by: str = "dispatcher") -> dict:
+        self.refresh_all()                      # compare against the cards as the interface shows them
         before = self._open_snapshot()
         src = self.session_excl.pop(workshop_id, None)
         self._log(src["source"] if src else None, "lift_constraint", by, f"{self.name(workshop_id)} (set by {src['by'] if src else '-'})")
