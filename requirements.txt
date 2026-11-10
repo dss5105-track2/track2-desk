@@ -6,7 +6,8 @@ openai
 python-dotenv
 
 # Dispatcher interface: streamlit run app/streamlit_app.py
-streamlit>=1.50
+# Keep Cloud and local preview on the same verified widget/theme implementation.
+streamlit==1.50.0
 pandas
 
 # Optional, for a nicer test runner

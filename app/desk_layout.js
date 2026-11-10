@@ -7,8 +7,9 @@
     let ratio = .38, frame = 0, disposed = false;
     try { ratio = Number(host.sessionStorage.getItem('sweater-desk-order-width')) || .38; } catch (_) {}
     const root = doc.documentElement;
-    let observedComposer, observedMain, observedBrand;
+    let observedComposer, observedMain, observedBrand, observedSidebar;
     const observer = new host.ResizeObserver(() => schedule());
+    const sidebarVisibility = new host.MutationObserver(() => schedule());
     const schedule = () => {
         if (!frame && !disposed) frame = host.requestAnimationFrame(() => { frame = 0; measure(); });
     };
@@ -25,20 +26,33 @@
         }
         const rect = main.getBoundingClientRect(), style = host.getComputedStyle(main);
         const sidebarContent = doc.querySelector('[data-testid="stSidebarUserContent"]');
+        const sidebar = doc.querySelector('[data-testid="stSidebar"]');
         const brand = doc.querySelector('.st-key-sidebar_brand');
-        if (sidebarContent && brand) {
+        if (sidebar && sidebar !== observedSidebar) {
+            sidebarVisibility.disconnect();
+            sidebarVisibility.observe(sidebar, {attributes: true, attributeFilter: ['aria-expanded']});
+            observedSidebar = sidebar;
+        }
+        if (sidebarContent && brand && sidebar?.getAttribute('aria-expanded') === 'true') {
             const bounds = sidebarContent.getBoundingClientRect();
-            root.style.setProperty('--desk-sidebar-left', `${bounds.left}px`);
-            root.style.setProperty('--desk-sidebar-width', `${bounds.width}px`);
-            root.style.setProperty('--desk-sidebar-body-top', `${brand.parentElement.getBoundingClientRect().bottom + 12}px`);
+            // Never cache the drawer's offscreen coordinates during its animation.
+            if (bounds.left >= 0) {
+                root.style.setProperty('--desk-sidebar-left', `${bounds.left}px`);
+                root.style.setProperty('--desk-sidebar-width', `${bounds.width}px`);
+                root.style.setProperty('--desk-sidebar-body-top', `${brand.parentElement.getBoundingClientRect().bottom + 12}px`);
+            }
             if (brand !== observedBrand) {
                 if (observedBrand) observer.unobserve(observedBrand);
                 observer.observe(brand); observedBrand = brand;
             }
         }
         root.style.setProperty('--desk-nav-left', `${rect.left + 8}px`);
-        root.style.setProperty('--desk-input-left', `${rect.left + 8}px`);
-        root.style.setProperty('--desk-input-width', `${Math.max(0, rect.width - 8 - parseFloat(style.paddingRight))}px`);
+        // Safari's visible viewport changes with browser chrome and the keyboard.
+        const viewport = host.visualViewport;
+        const visibleHeight = viewport?.height || host.innerHeight;
+        const keyboardInset = Math.max(0, host.innerHeight - visibleHeight - (viewport?.offsetTop || 0));
+        root.style.setProperty('--desk-visible-height', `${visibleHeight}px`);
+        root.style.setProperty('--desk-keyboard-inset', `${keyboardInset}px`);
         const left = rect.left + parseFloat(style.paddingLeft) + 64;
         const width = Math.max(0, rect.width - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) - 64);
         root.style.setProperty('--desk-left', `${left}px`);
@@ -126,8 +140,17 @@
     const mutations = new host.MutationObserver(schedule);
     mutations.observe(doc.querySelector('[data-testid="stAppViewContainer"]') || doc.body, {childList: true, subtree: true});
     host.addEventListener('resize', schedule);
+    const sidebarTransition = event => {
+        if (event.target.closest?.('[data-testid="stSidebar"]')) schedule();
+    };
+    doc.addEventListener('transitionend', sidebarTransition);
+    host.visualViewport?.addEventListener('resize', schedule);
+    host.visualViewport?.addEventListener('scroll', schedule);
     host.__sweaterDeskLayout = {responseSignature, pageNoticeSignature, dispose() {
-        disposed = true; observer.disconnect(); mutations.disconnect(); host.removeEventListener('resize', schedule);
+        disposed = true; observer.disconnect(); sidebarVisibility.disconnect(); mutations.disconnect(); host.removeEventListener('resize', schedule);
+        doc.removeEventListener('transitionend', sidebarTransition);
+        host.visualViewport?.removeEventListener('resize', schedule);
+        host.visualViewport?.removeEventListener('scroll', schedule);
         if (frame) host.cancelAnimationFrame(frame);
         doc.querySelectorAll('.desk-resize-handle').forEach(handle => handle.remove());
     }};

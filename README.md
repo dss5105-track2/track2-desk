@@ -9,7 +9,7 @@ Today, sending a batch to an outside workshop is one unchecked message in a grou
 
 ## Run it locally
 
-Tested on Python 3.12.
+Tested on Python 3.12. Install the repository requirements and run from the project root; Streamlit is pinned to 1.50.0 so local and Cloud use the same verified widget and theme implementation.
 
 ```bash
 git clone https://github.com/dss5105-track2/track2-desk.git
@@ -41,7 +41,7 @@ Copy `.env.example` to `.env` and set `OPENAI_API_KEY`. `.env` is git-ignored; n
 python -m pytest -q
 ```
 
-379 tests should pass, including the Streamlit navigation, workshop selection and change-feedback regression tests.
+380 tests should pass, including the Streamlit navigation, workshop selection and change-feedback regression tests.
 
 | Command | What it does |
 |---|---|
@@ -139,7 +139,7 @@ eval/          Protocol, labelling guide, labels, scoring scripts, independent d
 eval/heldout/  Frozen held-out inbox and the records of each run
 experiments/   Scripts and results behind the numbers above, challenge set, failure cases
 docs/          Tool specification, architecture, interface guide, user test tasks, factory primer, round-2 history
-tests/         379 automated tests
+tests/         380 automated tests
 ```
 
 Some working documents are in Chinese, including the held-out run records, the interface guide and the evaluation protocol.
