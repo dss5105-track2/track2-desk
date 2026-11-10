@@ -17,10 +17,16 @@
 .st-key-workspace_nav {
     position: fixed; left: var(--desk-nav-left, 12px); top: 72px; width: 52px; z-index: 80;
     padding: 8px 4px; background: #f0f2f6; border: 1px solid #e1e5ec;
-    border-radius: 14px; height: max-content !important; flex: none !important; gap: 8px !important;
+    /* Keep the fixed navigation from stretching with its widget wrappers. */
+    border-radius: 14px; height: 260px !important; min-height: 260px !important; max-height: 260px !important;
+    bottom: auto !important; box-sizing: border-box; overflow: hidden; flex: none !important; gap: 8px !important;
 }
 .st-key-workspace_nav > [data-testid="stElementContainer"],
-.st-key-workspace_nav > [data-testid="stLayoutWrapper"] { flex: none !important; width: 42px !important; }
+.st-key-workspace_nav > [data-testid="stLayoutWrapper"] {
+    flex: none !important; width: 42px !important; height: 42px !important;
+    min-height: 0 !important; max-height: 42px !important;
+}
+.st-key-workspace_nav [data-testid="stButton"] { height: 42px; min-height: 0; }
 .st-key-workspace_nav [data-testid="stVerticalBlock"] { gap: 8px; }
 .st-key-workspace_nav [data-testid="stButton"] button { width: 42px; height: 42px; padding: 8px; }
 .st-key-workspace_nav [data-testid="stButton"] button p {
@@ -152,9 +158,15 @@
     .st-key-answer_card .stMarkdownBadge { font-size: .6875rem !important; }
     .st-key-page_content .st-key-change_notice { scroll-margin-top: 130px; }
     .st-key-workspace_nav { top: 58px; left: 12px; width: calc(100% - 24px); padding: 4px 6px;
-        display: grid !important; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: center; gap: 4px !important; }
+        display: grid !important; grid-template-columns: repeat(5, minmax(0, 1fr)); grid-template-rows: 54px;
+        height: 64px !important; min-height: 64px !important; max-height: 64px !important;
+        align-content: start; align-items: start; gap: 4px !important; }
     .st-key-workspace_nav > [data-testid="stElementContainer"],
-    .st-key-workspace_nav > [data-testid="stLayoutWrapper"] { flex: 1 1 0 !important; width: auto !important; min-width: 0; }
+    .st-key-workspace_nav > [data-testid="stLayoutWrapper"] {
+        flex: none !important; width: auto !important; min-width: 0;
+        height: 54px !important; min-height: 0 !important; max-height: 54px !important;
+    }
+    .st-key-workspace_nav [data-testid="stButton"] { height: 54px !important; }
     .st-key-workspace_nav [data-testid="stButton"] button { width: 100% !important; height: 54px !important;
         min-width: 0; padding: 3px 1px !important; display: flex; flex-direction: column !important;
         align-items: center; justify-content: center; gap: 2px; }
