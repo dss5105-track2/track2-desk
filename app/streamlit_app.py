@@ -80,6 +80,23 @@ UI_OBJECTIVES = ["use_slack", "defects", "hybrid"]
 SENDERS = ["Boss", "Chen", "Ravi", "Priya", "Mei"]
 
 
+def left_aligned_table(data, *, column_config=None, **kwargs):
+    """Align native grid cells without turning numbers into sortable text.
+
+    Streamlit 1.50 supports alignment in the ColumnConfig mapping, although its
+    NumberColumn convenience function does not yet expose that keyword.
+    """
+    config = dict(column_config or {})
+    for name in data.columns:
+        current = config.get(name, {})
+        if current is None:  # Preserve an explicitly hidden column.
+            continue
+        if isinstance(current, str):
+            current = {"label": current}
+        config[name] = {**current, "alignment": "left"}
+    return st.dataframe(data, column_config=config, **kwargs)
+
+
 # ------------------------------------------------------------------ session
 def new_desk(objective: str, use_llm: bool) -> Desk:
     client = LLMClient(provider="openai") if use_llm else None
@@ -135,10 +152,10 @@ def render_change_report(report: dict) -> None:
             with st.expander("View changes"):
                 if changed:
                     st.caption(f"Updated recommendations ({len(changed)})")
-                    st.dataframe(pd.DataFrame(changed), hide_index=True, width="stretch")
+                    left_aligned_table(pd.DataFrame(changed), hide_index=True, width="stretch")
                 if dispatched:
                     st.caption(f"Dispatched batches kept unchanged ({len(dispatched)})")
-                    st.dataframe(pd.DataFrame(dispatched), hide_index=True, width="stretch")
+                    left_aligned_table(pd.DataFrame(dispatched), hide_index=True, width="stretch")
 
 
 def render_operation_feedback() -> None:
@@ -265,7 +282,7 @@ with st.sidebar:
         for r in desk.ledger.records:
             if r["status"] == "committed":
                 sent[r["workshop_id"]] = sent.get(r["workshop_id"], 0) + r["pieces"]
-        st.dataframe(pd.DataFrame([{"Workshop": desk.name(w) + (" 🛑" if w in desk.stopped else " ⛔" if (desk.W[w].status != "ACTIVE" or w in desk.session_excl) else ""),
+        left_aligned_table(pd.DataFrame([{"Workshop": desk.name(w) + (" 🛑" if w in desk.stopped else " ⛔" if (desk.W[w].status != "ACTIVE" or w in desk.session_excl) else ""),
                                     "Queue": round(v, 1), "Sent": sent.get(w, 0)} for w, v in q.items()]),
                      hide_index=True, width="stretch",
                      column_config={"Workshop": st.column_config.TextColumn("Workshop", width=170),
@@ -415,12 +432,12 @@ def render_card(d: dict) -> None:
         selectable = desk.is_open(d) and d["subtype"] in ("allocate", "ineligible_suggestion", "no_on_time_option")
         if selectable:
             st.caption("★ System first choice · select one checkbox to prepare an alternative. Selection does not dispatch.")
-            selection = st.dataframe(candidate_frame(d), hide_index=True, width="stretch",
+            selection = left_aligned_table(candidate_frame(d), hide_index=True, width="stretch",
                                      key=candidate_widget_key(d), on_select="rerun", selection_mode="single-row",
                                      height=min(38 + 35 * len(d["candidates"]), 320))
             selected_candidate = candidate_from_rows(d, selection.selection.rows)
         else:
-            st.dataframe(candidate_frame(d), hide_index=True, width="stretch")
+            left_aligned_table(candidate_frame(d), hide_index=True, width="stretch")
     blocked = [e for e in d["eligibility"] if not e["eligible"]]
     if blocked:
         st.caption("Not eligible: " + " · ".join(f"**{e['name']}** ({e['reason']})" for e in blocked))
@@ -539,7 +556,6 @@ if page == "dispatch":
     with st.container(key="dispatch_composer"):
         with st.form("new_message", clear_on_submit=True, border=True):
             st.markdown("### 💬 New chat message")
-            st.caption("Paste a group-chat request. Review the recommendation before confirming any dispatch.")
             fc1, fc2, fc3 = st.columns([1, 5, 1], vertical_alignment="bottom")
             sender = fc1.selectbox("From", SENDERS)
             # CSS field-sizing provides a one-line start in supporting browsers.
@@ -551,6 +567,7 @@ if page == "dispatch":
                 st.session_state.selected = nd["request_id"]
                 st.session_state.group_pending = group_of(nd)
                 st.rerun()
+            st.caption("Paste a group-chat request. Review the recommendation before confirming any dispatch.")
     desk.refresh_all()
     decisions = list(desk.decisions.values())
     counts = {k: sum(1 for d in decisions if d["status"] in statuses) for k, _, statuses in GROUPS}
@@ -621,7 +638,7 @@ if page == "dispatch":
                                  key="toggle_order_table"):
                         st.session_state.orders_expanded = not expanded
                         st.rerun()
-                    ev = st.dataframe(inbox.style.apply(inbox_styles, axis=1), hide_index=True, width="content" if expanded else "stretch",
+                    ev = left_aligned_table(inbox.style.apply(inbox_styles, axis=1), hide_index=True, width="content" if expanded else "stretch",
                                       column_order=inbox_columns, on_select="rerun", selection_mode="single-row",
                                       # the key changes with every new message, ledger write or human action, so a stale row selection cannot outlive the list it pointed into
                                       key=f"inbox_{group}_{len(desk.decisions)}_{len(desk.ledger.records)}_{len(desk.actions)}_{expanded}", height=400,
@@ -686,7 +703,7 @@ if page == "workshops":
                                     f"at {desk.session_excl[w.workshop_id].get('time', '')})") if w.workshop_id in desk.session_excl else "",
             "Notes": w.notes,
         } for w in desk.W.values()])
-        st.dataframe(reg, hide_index=True, width="stretch")
+        left_aligned_table(reg, hide_index=True, width="stretch")
         st.bar_chart(reg, x="Name", y="Queue now (days)", horizontal=True, height=280)
 
         st.subheader("A workshop has stopped")
@@ -703,7 +720,7 @@ if page == "workshops":
         cat = wc1.selectbox("Category", ["TOPS", "ACCESSORIES"])
         pcs = wc2.number_input("Pieces", min_value=1, max_value=5000, value=1500, step=100)
         elig = eligibility_table(desk.W, cat, int(pcs), exclude=set(desk.session_excl) | set(desk.stopped))
-        st.dataframe(pd.DataFrame([{"Workshop": e["name"], "Can take": "✅" if e["eligible"] else "❌", "Reason": e["reason"]} for e in elig]),
+        left_aligned_table(pd.DataFrame([{"Workshop": e["name"], "Can take": "✅" if e["eligible"] else "❌", "Reason": e["reason"]} for e in elig]),
                      hide_index=True, width="stretch")
 
 
@@ -713,7 +730,7 @@ if page == "audit":
         st.subheader("Ledger")
         render_operation_feedback()
         if desk.ledger.records:
-            st.dataframe(pd.DataFrame([{
+            left_aligned_table(pd.DataFrame([{
                 "Audit": r["audit_id"], "Status": r["status"], "Request": r["request_id"], "Requester": r["requester"],
                 "Order": r["order_id"], "Pieces": r["pieces"], "Workshop": desk.name(r["workshop_id"]),
                 "Back": r["estimate"]["promised_date"], "If reworked": r["estimate"].get("worst_date", ""), "Due": r["due_date"],
@@ -725,7 +742,7 @@ if page == "audit":
             st.caption("No dispatches yet.")
         st.subheader("Dispatcher actions")
         if desk.actions:
-            st.dataframe(pd.DataFrame(desk.actions), hide_index=True, width="stretch")
+            left_aligned_table(pd.DataFrame(desk.actions), hide_index=True, width="stretch")
         else:
             st.caption("No actions yet.")
 
@@ -764,7 +781,7 @@ if page == "simulator":
         ten = s2.toggle("Average 10 seeds", value=True, help="Tracks v4 asks for shock results averaged over ten seeds (5105–5114).")
         shock = s3.toggle("Shock (one workshop closes for two weeks, 31 Jan – 14 Feb)")
         df = run_sim(int(seed), bool(shock), 10 if ten else 1)
-        st.dataframe(df, hide_index=True, width="stretch")
+        left_aligned_table(df, hide_index=True, width="stretch")
         st.bar_chart(df, x="Policy", y="% late", color="Kind", horizontal=True, height=max(360, 42 * len(df)))
         st.caption("Command-line equivalent: `python harness/run_baselines.py --seed " + str(int(seed))
                    + (" --shock" if shock else "") + (" --seeds 10`" if ten else " --seeds 1`"))

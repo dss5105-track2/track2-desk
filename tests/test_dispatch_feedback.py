@@ -1,4 +1,5 @@
 """UI regression coverage for the issues observed in human testing tasks 5–7."""
+import json
 from copy import deepcopy
 from pathlib import Path
 import sys
@@ -289,3 +290,22 @@ def test_order_table_expansion_keeps_selection_and_never_dispatches(monkeypatch)
         assert at.session_state["orders_expanded"] is False
         assert at.session_state["selected"] == selected
         assert desk.ledger.records == ledger
+
+
+def test_left_alignment_preserves_numeric_types_and_display_formats(monkeypatch):
+    desk = morning()
+    before = deepcopy(desk.ledger.records)
+    at = app(desk, monkeypatch)
+    queues = next(frame for frame in at.dataframe if {"Workshop", "Queue", "Sent"} <= set(frame.value.columns))
+    candidates = next(frame for frame in at.dataframe if {"Workshop", "Cost", "Days"} <= set(frame.value.columns))
+    assert queues.value["Queue"].dtype.kind == "f"
+    assert queues.value["Sent"].dtype.kind in "iu"
+    assert candidates.value["Cost"].dtype.kind in "iu"
+    assert candidates.value["Days"].dtype.kind == "f"
+    config = json.loads(queues.proto.columns)
+    assert config["Queue"]["type_config"]["format"] == "%.1f"
+    assert config["Sent"]["type_config"]["format"] == "%d"
+    for frame in at.dataframe:
+        config = json.loads(frame.proto.columns)
+        assert all(config[str(name)]["alignment"] == "left" for name in frame.value.columns)
+    assert desk.ledger.records == before
