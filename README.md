@@ -27,7 +27,7 @@ python -m pip install -r requirements.txt
 streamlit run app/streamlit_app.py
 ```
 
-The browser opens <http://localhost:8501>. Click **Load morning inbox** to receive the 30 chat messages of 1 April, or type a message in the box at the top of **Dispatch**.
+The browser opens <http://localhost:8501>. Click **Load morning inbox** to receive the 30 chat messages of 1 April, or type a message in the box at the bottom of **Dispatch**.
 
 No API key is needed: without one the desk uses its rule-based parser and the GPT-5 mini option stays disabled.
 
@@ -41,7 +41,7 @@ Copy `.env.example` to `.env` and set `OPENAI_API_KEY`. `.env` is git-ignored; n
 python -m pytest -q
 ```
 
-350 tests should pass.
+379 tests should pass, including the Streamlit navigation, workshop selection and change-feedback regression tests.
 
 | Command | What it does |
 |---|---|
@@ -139,7 +139,7 @@ eval/          Protocol, labelling guide, labels, scoring scripts, independent d
 eval/heldout/  Frozen held-out inbox and the records of each run
 experiments/   Scripts and results behind the numbers above, challenge set, failure cases
 docs/          Tool specification, architecture, interface guide, user test tasks, factory primer, round-2 history
-tests/         350 automated tests
+tests/         379 automated tests
 ```
 
 Some working documents are in Chinese, including the held-out run records, the interface guide and the evaluation protocol.

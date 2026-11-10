@@ -17,7 +17,6 @@ from __future__ import annotations
 import json
 import os
 import sys
-import time
 from datetime import date
 from pathlib import Path
 
@@ -33,6 +32,13 @@ from desk.pipeline import Desk, inbox_lines, HUMAN_STATUSES  # noqa: E402
 from kernel.orders import TODAY  # noqa: E402
 from kernel.register import eligibility_table  # noqa: E402
 from llm.llm_client import DEFAULT_MODEL, LLMClient  # noqa: E402
+from app.dispatch_feedback import (  # noqa: E402
+    change_tables, collect_change_report, inbox_styles, order_labels,
+    risk_label, take_change_report, workshop_label,
+)
+from app.workshop_selection import (  # noqa: E402
+    candidate_from_rows, candidate_widget_key, dispatch_label, reply_draft,
+)
 
 st.set_page_config(page_title="SweaterCo Subcontracting Desk", page_icon="🧶", layout="wide")
 
@@ -107,6 +113,45 @@ def fmt_date(s) -> str:
     return pd.Timestamp(s).strftime("%a %d %b") if s else "-"
 
 
+def render_change_report(report: dict) -> None:
+    changed, dispatched = change_tables(report, desk.name)
+    at_risk = [row for row in report["dispatched"] if row.get("risks")]
+    cause = report["cause"]
+    cause = cause[:1].upper() + cause[1:]
+    open_label = "request" if len(changed) == 1 else "requests"
+    batch_label = "batch was" if len(dispatched) == 1 else "batches were"
+    message = f"**{cause}.** {len(changed)} open {open_label} updated."
+    if dispatched:
+        message += ("\n\n**Already-dispatched batches are not changed automatically.** "
+                    f"{len(dispatched)} dispatched {batch_label} kept at their current workshops.")
+    for row in at_risk:
+        risks = " · ".join(risk_label(risk) for risk in row["risks"])
+        message += f"\n\n- **{row['request_id']} · {workshop_label(row['workshop_id'], desk.name)}** — {risks}"
+    if at_risk:
+        message += "\n\nTo move a dispatched batch, open **Done**, select its request and use **Reassign**."
+    with st.container(key="change_notice"):
+        (st.warning if at_risk else st.info)(message)
+        if changed or dispatched:
+            with st.expander("View changes"):
+                if changed:
+                    st.caption(f"Updated recommendations ({len(changed)})")
+                    st.dataframe(pd.DataFrame(changed), hide_index=True, width="stretch")
+                if dispatched:
+                    st.caption(f"Dispatched batches kept unchanged ({len(dispatched)})")
+                    st.dataframe(pd.DataFrame(dispatched), hide_index=True, width="stretch")
+
+
+def render_operation_feedback() -> None:
+    """Show a report once, in the page where the dispatcher performed the action."""
+    report = take_change_report(st.session_state)
+    if pending_flash:
+        kind, msg = pending_flash
+        if not (report and kind == "success" and "re-ranked" in msg):
+            (st.error if kind == "error" else st.success)(msg)
+    if report is not None:
+        render_change_report(report)
+
+
 def chosen(d: dict):
     """The candidate row of the recommended (or confirmed) workshop, straight from the kernel output."""
     wid = d.get("confirmed_workshop") or d.get("recommended")
@@ -130,108 +175,121 @@ def next_open(after: str):
     return (later or pool or [None])[0]
 
 
-# ------------------------------------------------------------------ sidebar
+# ------------------------------------------------------------------ navigation and desk controls
+st.markdown("<style>" + (ROOT / "app" / "desk_layout.css").read_text(encoding="utf-8") + "</style>", unsafe_allow_html=True)
 with st.sidebar:
-    st.title("🧶 Subcontracting Desk")
-    st.caption(f"SweaterCo · today {TODAY:%a %d %b %Y}")
+    with st.container(key="sidebar_brand"):
+        st.title("🧶 Subcontracting Desk")
+        st.caption(f"SweaterCo · today {TODAY:%a %d %b %Y}")
 
-    shown = UI_OBJECTIVES + [o for o in [desk.alloc.objective] if o not in UI_OBJECTIVES]
-    objective = st.selectbox("Objective", shown, index=shown.index(desk.alloc.objective),
-                             format_func=lambda o: o.replace("_", " "), help="How eligible workshops are ranked. Changing it re-ranks every open request.")
-    st.caption(OBJECTIVE_HELP.get(objective, ""))
-    if objective != desk.alloc.objective:
-        desk.set_objective(objective)
-        flash(f"Objective set to {objective}; open requests re-ranked")
-        st.rerun()
+    with st.container(key="sidebar_body"):
+        shown = UI_OBJECTIVES + [o for o in [desk.alloc.objective] if o not in UI_OBJECTIVES]
+        objective = st.selectbox("Objective", shown, index=shown.index(desk.alloc.objective),
+                                 format_func=lambda o: o.replace("_", " "), help="How eligible workshops are ranked. Changing it re-ranks every open request.")
+        st.caption(OBJECTIVE_HELP.get(objective, ""))
+        if objective != desk.alloc.objective:
+            desk.set_objective(objective)
+            flash(f"Objective set to {objective}; open requests re-ranked")
+            st.rerun()
 
-    has_key = bool(os.getenv("OPENAI_API_KEY") or os.getenv("DESK_LLM_API_KEY"))
-    llm_label = (os.getenv("DESK_LLM_MODEL") or DEFAULT_MODEL).replace("gpt-", "GPT-").replace("-mini", " mini").replace("-nano", " nano")
-    parser_choice = st.radio("Message parser", ["Rules (free, offline)", llm_label], index=1 if st.session_state.use_llm else 0,
-                             key="message_parser", disabled=not has_key,
-                             help="Changing the parser starts a new session." if has_key else "Add OPENAI_API_KEY to .env to enable")
-    want_llm = parser_choice == llm_label
-    if want_llm != st.session_state.use_llm:
-        st.session_state.use_llm = want_llm
-        st.session_state.desk = new_desk(desk.alloc.objective, want_llm)
-        st.session_state.selected = None
-        st.rerun()
+        has_key = bool(os.getenv("OPENAI_API_KEY") or os.getenv("DESK_LLM_API_KEY"))
+        llm_label = (os.getenv("DESK_LLM_MODEL") or DEFAULT_MODEL).replace("gpt-", "GPT-").replace("-mini", " mini").replace("-nano", " nano")
+        parser_choice = st.radio("Message parser", ["Rules (free, offline)", llm_label], index=1 if st.session_state.use_llm else 0,
+                                 key="message_parser", disabled=not has_key,
+                                 help="Changing the parser starts a new session." if has_key else "Add OPENAI_API_KEY to .env to enable")
+        want_llm = parser_choice == llm_label
+        if want_llm != st.session_state.use_llm:
+            st.session_state.use_llm = want_llm
+            st.session_state.desk = new_desk(desk.alloc.objective, want_llm)
+            st.session_state.selected = None
+            st.rerun()
 
-    st.markdown("""<style>
-        @media (min-width: 1100px) {
-            /* Start wide enough for the register; still allow dragging wider. */
-            section[data-testid="stSidebar"][aria-expanded="true"] {
-                min-width: 340px !important;
+        st.markdown("""<style>
+            @media (min-width: 1100px) {
+                /* Start wide enough for the register; still allow dragging wider. */
+                section[data-testid="stSidebar"][aria-expanded="true"] {
+                    min-width: 340px !important;
+                }
             }
-        }
-        .st-key-message_parser p {
-            font-size: 0.875rem;
-        }
-        .st-key-session_actions button {
-            display: flex;
-            height: 40px;
-            min-height: 40px;
-            max-height: 40px;
-            padding: 2px 6px;
-        }
-        .st-key-session_actions button p {
-            font-size: 0.8125rem;
-            line-height: 1rem;
-        }
-    </style>""", unsafe_allow_html=True)
-    with st.container(key="session_actions"):
-        c1, c2 = st.columns(2)
-        if c1.button("Load morning inbox", type="primary", width="stretch", disabled=any(r.startswith("R") for r in desk.decisions)):
-            with st.spinner("Reading 30 messages…"):
-                for ln in inbox_lines():
-                    desk.propose(ln)
-            st.session_state.selected = None
-            flash("30 messages received. Nothing is dispatched until you confirm.")
-            st.rerun()
-        if c2.button("Reset", width="stretch"):
-            st.session_state.desk = new_desk(desk.alloc.objective, st.session_state.use_llm)
-            st.session_state.selected = None
+            .st-key-message_parser p {
+                font-size: 0.875rem;
+            }
+            .st-key-session_actions button {
+                display: flex;
+                height: 40px;
+                min-height: 40px;
+                max-height: 40px;
+                padding: 2px 6px;
+            }
+            .st-key-session_actions button p {
+                font-size: 0.8125rem;
+                line-height: 1rem;
+            }
+        </style>""", unsafe_allow_html=True)
+        with st.container(key="session_actions"):
+            c1, c2 = st.columns(2)
+            if c1.button("Load morning inbox", type="primary", width="stretch", disabled=any(r.startswith("R") for r in desk.decisions)):
+                with st.spinner("Reading 30 messages…"):
+                    for ln in inbox_lines():
+                        desk.propose(ln)
+                st.session_state.selected = None
+                flash("30 messages received. Nothing is dispatched until you confirm.")
+                st.rerun()
+            if c2.button("Reset", width="stretch"):
+                st.session_state.desk = new_desk(desk.alloc.objective, st.session_state.use_llm)
+                st.session_state.selected = None
+                st.rerun()
+
+        st.subheader("Standing constraints")
+        if not desk.session_excl and not desk.stopped:
+            st.caption("None")
+        for wid, src in list(desk.stopped.items()):
+            cc1, cc2 = st.columns([5, 3])
+            cc1.markdown(f"🛑 **{desk.name(wid)}** · stopped  \n<small>confirmed by {src['by']} at {src['time']}</small>", unsafe_allow_html=True)
+            if cc2.button("Reopen", key=f"reopen_{wid}"):
+                desk.reopen(wid)
+                flash(f"{desk.name(wid)} reopened; open requests re-ranked")
+                st.rerun()
+        for wid, src in list(desk.session_excl.items()):
+            cc1, cc2 = st.columns([4, 1])
+            cc1.markdown(f"⛔ **{desk.name(wid)}** · no new work  \n<small>{src['by']} in {src['source']} at {src.get('time', '')} · applies to every open request</small>",
+                         unsafe_allow_html=True)
+            if cc2.button("Lift", key=f"lift_{wid}"):
+                desk.lift_constraint(wid)
+                flash(f"Lifted the constraint on {desk.name(wid)}; open requests re-ranked")
+                st.rerun()
+
+        st.subheader("Workshop queues")
+        q = desk.ledger.queues()
+        sent = {}
+        for r in desk.ledger.records:
+            if r["status"] == "committed":
+                sent[r["workshop_id"]] = sent.get(r["workshop_id"], 0) + r["pieces"]
+        st.dataframe(pd.DataFrame([{"Workshop": desk.name(w) + (" 🛑" if w in desk.stopped else " ⛔" if (desk.W[w].status != "ACTIVE" or w in desk.session_excl) else ""),
+                                    "Queue": round(v, 1), "Sent": sent.get(w, 0)} for w, v in q.items()]),
+                     hide_index=True, width="stretch",
+                     column_config={"Workshop": st.column_config.TextColumn("Workshop", width=170),
+                                    "Queue": st.column_config.NumberColumn("Queue d", format="%.1f", width=62, help="Days of work the shop is holding now"),
+                                    "Sent": st.column_config.NumberColumn("Sent", format="%d", width=52, help="Pieces confirmed in this session")})
+        if st.session_state.get("llm_client"):
+            c = st.session_state.llm_client
+            st.caption(f"{c.model} spend this session: ${c.spent_usd:.4f} of ${c.budget_usd:.2f}")
+
+
+PAGES = [("dispatch", "Dispatch", "forum"), ("workshops", "Workshops", "factory"),
+         ("audit", "Audit log", "receipt_long"), ("simulator", "Simulator", "science"),
+         ("evaluation", "Evaluation", "analytics")]
+with st.container(key="workspace_nav"):
+    for page_key, page_label, page_icon in PAGES:
+        if st.button(page_label, icon=f":material/{page_icon}:", help=page_label,
+                     type="primary" if st.session_state.get("page", "dispatch") == page_key else "secondary",
+                     key=f"nav_{page_key}"):
+            st.session_state.page = page_key
             st.rerun()
 
-    st.subheader("Standing constraints")
-    if not desk.session_excl and not desk.stopped:
-        st.caption("None")
-    for wid, src in list(desk.stopped.items()):
-        cc1, cc2 = st.columns([5, 3])
-        cc1.markdown(f"🛑 **{desk.name(wid)}** · stopped  \n<small>confirmed by {src['by']} at {src['time']}</small>", unsafe_allow_html=True)
-        if cc2.button("Reopen", key=f"reopen_{wid}"):
-            desk.reopen(wid)
-            flash(f"{desk.name(wid)} reopened; open requests re-ranked")
-            st.rerun()
-    for wid, src in list(desk.session_excl.items()):
-        cc1, cc2 = st.columns([4, 1])
-        cc1.markdown(f"⛔ **{desk.name(wid)}** · no new work  \n<small>{src['by']} in {src['source']} at {src.get('time', '')} · applies to every open request</small>",
-                     unsafe_allow_html=True)
-        if cc2.button("Lift", key=f"lift_{wid}"):
-            desk.lift_constraint(wid)
-            flash(f"Lifted the constraint on {desk.name(wid)}; open requests re-ranked")
-            st.rerun()
-
-    st.subheader("Workshop queues")
-    q = desk.ledger.queues()
-    sent = {}
-    for r in desk.ledger.records:
-        if r["status"] == "committed":
-            sent[r["workshop_id"]] = sent.get(r["workshop_id"], 0) + r["pieces"]
-    st.dataframe(pd.DataFrame([{"Workshop": desk.name(w) + (" 🛑" if w in desk.stopped else " ⛔" if (desk.W[w].status != "ACTIVE" or w in desk.session_excl) else ""),
-                                "Queue": round(v, 1), "Sent": sent.get(w, 0)} for w, v in q.items()]),
-                 hide_index=True, width="stretch",
-                 column_config={"Workshop": st.column_config.TextColumn("Workshop", width=170),
-                                "Queue": st.column_config.NumberColumn("Queue d", format="%.1f", width=62, help="Days of work the shop is holding now"),
-                                "Sent": st.column_config.NumberColumn("Sent", format="%d", width=52, help="Pieces confirmed in this session")})
-    if st.session_state.get("llm_client"):
-        c = st.session_state.llm_client
-        st.caption(f"{c.model} spend this session: ${c.spent_usd:.4f} of ${c.budget_usd:.2f}")
-
-if "flash" in st.session_state:
-    kind, msg = st.session_state.pop("flash")
-    (st.error if kind == "error" else st.success)(msg)
-
-tab_desk, tab_ws, tab_audit, tab_sim, tab_eval = st.tabs(["Dispatch", "Workshops", "Audit log", "Simulator", "Evaluation"])
+page = st.session_state.get("page", "dispatch")
+collect_change_report(desk, st.session_state)
+pending_flash = st.session_state.pop("flash", None)
 
 
 # ------------------------------------------------------------------ dispatch
@@ -241,7 +299,7 @@ def inbox_row(d: dict) -> dict:
     if d["status"] == "committed":
         decision, back, spare = f"Sent → {desk.name(d['confirmed_workshop'])}", fmt_date(d["final_estimate"]["promised_date"]), margin(d["final_estimate"], d)
     elif d["subtype"] == "allocate":
-        decision = f"★ {c['name']}" + ("" if c.get("safe") else "  ·  tight")
+        decision = f"★ {c['name']}" + ("" if c.get("safe") else "  ·  ⚠ tight")
         back, spare = fmt_date(c["promised_date"]), margin(c, d)
     elif d["subtype"] == "no_on_time_option":
         decision = "No on-time option" + (f"  ·  earliest {c['name']}" if c else "")
@@ -257,7 +315,11 @@ def inbox_row(d: dict) -> dict:
         decision = "Not in the data"
     if d["status"] in HUMAN_STATUSES:
         decision = STATUS_LABEL[d["status"]][0]
-    return {"ID": d["request_id"], "Order": d["order_id"] or "?", "Decision": decision, "Back": back, "Spare": "" if spare is None else f"{spare} d"}
+    customer, product = order_labels(d["order_id"], desk.O)
+    updated = d["request_id"] in st.session_state.get("changed_request_ids", ())
+    return {"Update": "↻ Updated" if updated else "", "ID": d["request_id"], "Order": d["order_id"] or "?",
+            "Customer": customer, "Product": product, "Decision": decision,
+            "Back": back, "Spare": "" if spare is None else f"{spare} d"}
 
 
 def candidate_frame(d: dict) -> pd.DataFrame:
@@ -287,6 +349,8 @@ def render_card(d: dict) -> None:
         h1, h2 = st.columns([4, 2])
         h1.markdown(f"#### {rid} · {d['timestamp']} · {d['requester']}")
         h2.badge(label, color=color)
+        if d["status"] == "awaiting_confirmation" and (chosen(d) or {}).get("safe") is False:
+            h2.badge("⚠ Late if reworked", color="orange")
         st.markdown(f"> {d['raw_text']}")
 
         # line 1: what was asked
@@ -344,10 +408,19 @@ def render_card(d: dict) -> None:
             st.caption(f"• {fl}")
 
     # ---- candidates and who is out
+    selected_candidate = None
     if d["candidates"]:
         st.markdown("**Eligible workshops** · ranked by `" + desk.alloc.objective + "`"
                     + (f" · preference `{p['preference']}`" if p["preference"] in ("fastest", "cheapest_on_time", "lowest_defect") else ""))
-        st.dataframe(candidate_frame(d), hide_index=True, width="stretch")
+        selectable = desk.is_open(d) and d["subtype"] in ("allocate", "ineligible_suggestion", "no_on_time_option")
+        if selectable:
+            st.caption("★ System first choice · select one checkbox to prepare an alternative. Selection does not dispatch.")
+            selection = st.dataframe(candidate_frame(d), hide_index=True, width="stretch",
+                                     key=candidate_widget_key(d), on_select="rerun", selection_mode="single-row",
+                                     height=min(38 + 35 * len(d["candidates"]), 320))
+            selected_candidate = candidate_from_rows(d, selection.selection.rows)
+        else:
+            st.dataframe(candidate_frame(d), hide_index=True, width="stretch")
     blocked = [e for e in d["eligibility"] if not e["eligible"]]
     if blocked:
         st.caption("Not eligible: " + " · ".join(f"**{e['name']}** ({e['reason']})" for e in blocked))
@@ -387,34 +460,31 @@ def render_card(d: dict) -> None:
             st.rerun()
 
     elif d["subtype"] in ("allocate", "ineligible_suggestion", "no_on_time_option") and d["candidates"] and desk.is_open(d):
-        best = d["candidates"][0]
+        best = next((candidate for candidate in d["candidates"] if candidate["workshop_id"] == d["recommended"]), d["candidates"][0])
         late = not best["on_time"]
         b1, b2 = st.columns(2)
-        primary = (f"Accept delay · send to {best['name']}" if late else f"Confirm {best['name']}")
+        primary = dispatch_label(best, preferred=True)
         if b1.button(primary, type="primary", key=f"ok_{rid}", width="stretch"):
             if act(desk.confirm, rid, best["workshop_id"], accept_late=late, ok=f"{rid} dispatched to {best['name']}"):
                 st.session_state.selected = next_open(rid)
             st.rerun()
-        alt = d["candidates"][1:]
-        if alt:
-            target = b2.selectbox("Or choose", [x["workshop_id"] for x in alt], format_func=lambda w: next(
-                f"{x['name']} · back {fmt_date(x['promised_date'])}" + ("" if x["on_time"] else f" · {x['late_days']}d late")
-                for x in alt if x["workshop_id"] == w), key=f"alt_{rid}", label_visibility="collapsed")
-            tc = next(x for x in alt if x["workshop_id"] == target)
-            if b2.button(f"Send to {tc['name']}", key=f"altb_{rid}", width="stretch"):
-                if act(desk.confirm, rid, target, accept_late=not tc["on_time"], ok=f"{rid} dispatched to {tc['name']}"):
-                    st.session_state.selected = next_open(rid)
-                st.rerun()
+        alternative = selected_candidate if selected_candidate and selected_candidate["workshop_id"] != best["workshop_id"] else None
+        if b2.button(dispatch_label(alternative), key=f"altb_{rid}", width="stretch", disabled=alternative is None):
+            if act(desk.confirm, rid, alternative["workshop_id"], accept_late=not alternative["on_time"],
+                   ok=f"{rid} dispatched to {alternative['name']}"):
+                st.session_state.selected = next_open(rid)
+            st.rerun()
         if late:
-            l1, l2 = st.columns(2)
-            if l1.button("Renegotiate due date", key=f"neg_{rid}", width="stretch"):
-                act(desk.mark, rid, "renegotiating", ok=f"{rid} marked: renegotiating with the customer")
-                st.rerun()
-            if l2.button("Escalate to Boss", key=f"esc_{rid}", width="stretch"):
-                act(desk.mark, rid, "escalated", ok=f"{rid} escalated")
-                st.rerun()
+            with st.expander("Other actions"):
+                l1, l2 = st.columns(2)
+                if l1.button("Renegotiate due date", key=f"neg_{rid}", width="stretch"):
+                    act(desk.mark, rid, "renegotiating", ok=f"{rid} marked: renegotiating with the customer")
+                    st.rerun()
+                if l2.button("Escalate to Boss", key=f"esc_{rid}", width="stretch"):
+                    act(desk.mark, rid, "escalated", ok=f"{rid} escalated")
+                    st.rerun()
         with st.expander("Message for the group chat"):
-            st.code(d["explanation"], language=None, wrap_lines=True)
+            st.code(reply_draft(d, selected_candidate), language=None, wrap_lines=True)
 
     elif d["official_behaviour"] == "clarify" and desk.is_open(d):
         st.markdown("**Message for the group chat**")
@@ -458,84 +528,14 @@ def render_card(d: dict) -> None:
     else:
         st.caption(f"Closed: {STATUS_LABEL[d['status']][0]}")
 
-    with st.expander("Tool calls behind this recommendation"):
-        for t in d["tool_calls"]:
-            st.markdown(f"`{t['tool']}` · input `{json.dumps(t.get('input'), default=str)}`")
-            st.json(t.get("output"), expanded=False)
+    with st.container(key="evidence_link"):
+        with st.popover("View evidence", icon=":material/info:"):
+            for t in d["tool_calls"]:
+                st.markdown(f"`{t['tool']}` · input `{json.dumps(t.get('input'), default=str)}`")
+                st.json(t.get("output"), expanded=False)
 
 
-with tab_desk:
-    # the way in for a new chat message: first thing on the page, not below a long inbox
-    # Scope styling to the composer and inbox controls.
-    st.markdown("""<style>
-        .st-key-dispatch_composer [data-testid="stForm"] {
-            border: 1px solid #2E5496;
-            border-top: 4px solid #2E5496;
-            padding: clamp(1rem, 2vw, 1.5rem);
-        }
-        .st-key-dispatch_composer [data-baseweb="textarea"] {
-            border-color: #d9dee7;
-            border-radius: 0.625rem;
-            background-color: var(--background-color, #ffffff);
-        }
-        .st-key-dispatch_composer textarea {
-            /* Match the 40px sender/button row, then let native autosizing grow. */
-            min-height: 38px !important;
-            line-height: 24px;
-            padding: 7px 12px !important;
-            resize: none;
-            background-color: var(--background-color, #ffffff);
-        }
-        .st-key-dispatch_composer [data-baseweb="select"] > div {
-            border-color: #d9dee7;
-            border-radius: 0.625rem;
-            background-color: var(--background-color, #ffffff);
-        }
-        .st-key-dispatch_composer [data-testid="stFormSubmitButton"] button {
-            min-height: 40px;
-            border-radius: 0.625rem;
-        }
-        .st-key-dispatch_composer [data-testid="InputInstructions"] {
-            /* Keep the one-line draft free of the native shortcut overlay. */
-            display: none;
-        }
-        @supports (field-sizing: content) {
-            .st-key-dispatch_composer textarea {
-                field-sizing: content;
-                height: auto !important;
-                max-height: 240px !important;
-            }
-        }
-        .st-key-dispatch_composer [data-baseweb="textarea"]:focus-within {
-            outline: 2px solid #2E5496;
-            outline-offset: 2px;
-        }
-        .st-key-inbox_groups {
-            container-type: inline-size;
-        }
-        .st-key-inbox_groups button {
-            padding-left: 4px;
-            padding-right: 4px;
-        }
-        .st-key-inbox_groups button p {
-            font-size: 0.8125rem;
-            white-space: nowrap;
-        }
-        @media (min-width: 1100px) {
-            @container (max-width: 480px) {
-                .st-key-inbox_groups button {
-                    padding-left: 2px;
-                    padding-right: 2px;
-                }
-                .st-key-inbox_groups button p {
-                    font-size: clamp(0.71875rem, 2.9cqw, 0.8125rem);
-                }
-            }
-        }
-        .st-key-answer_card {
-            scroll-margin-top: 4rem;
-        }
-    </style>""", unsafe_allow_html=True)
+if page == "dispatch":
     with st.container(key="dispatch_composer"):
         with st.form("new_message", clear_on_submit=True, border=True):
             st.markdown("### 💬 New chat message")
@@ -545,31 +545,12 @@ with tab_desk:
             # CSS field-sizing provides a one-line start in supporting browsers.
             # Native content sizing is the fallback; values reach Python on submit.
             text = fc2.text_area("Message", height="content", key="dispatch_message",
-                                 placeholder="Type a chat request…")
+                                 placeholder="Type a request…")
             if fc3.form_submit_button("Send", type="primary", width="stretch") and text.strip():
                 nd = desk.new_message(sender, text.strip())
                 st.session_state.selected = nd["request_id"]
                 st.session_state.group_pending = group_of(nd)
-                st.session_state.scroll_until = time.time() + 3
                 st.rerun()
-    impact = desk.stopped_impact()
-    if impact:
-        with st.container(border=True):
-            st.markdown(f"**🛑 {len(impact)} dispatched {'batch is' if len(impact) == 1 else 'batches are'} at a stopped workshop.** Their promised dates no longer hold: move them, or leave them to wait for it to reopen.")
-            for row in impact:
-                m1, m2 = st.columns([3, 2], vertical_alignment="center")
-                if row["best"]:
-                    b = row["best"]
-                    m1.markdown(f"**{row['order_id']}** · {row['pieces']} pcs at {desk.name(row['workshop_id'])} · due {fmt_date(row['due_date'])}. "
-                                f"Best now: **{b['name']}**, back {fmt_date(b['promised_date'])}" + ("" if b["on_time"] else f" ({b['late_days']}d late)"))
-                    if m2.button(f"Re-dispatch to {b['name']}", key=f"move_{row['audit_id']}", width="stretch"):
-                        act(desk.reassign, row["audit_id"], b["workshop_id"], reason=f"{desk.name(row['workshop_id'])} stopped",
-                            ok=f"{row['order_id']} re-dispatched to {b['name']}")
-                        st.rerun()
-                else:
-                    m1.markdown(f"**{row['order_id']}** · {row['pieces']} pcs at {desk.name(row['workshop_id'])}: no other workshop can take it.")
-    if not desk.decisions:
-        st.info("Type a message above, or click **Load morning inbox** in the sidebar to receive the 30 chat messages from 1 April.")
     desk.refresh_all()
     decisions = list(desk.decisions.values())
     counts = {k: sum(1 for d in decisions if d["status"] in statuses) for k, _, statuses in GROUPS}
@@ -579,133 +560,174 @@ with tab_desk:
         st.session_state.group = st.session_state.pop("group_pending")
     if st.session_state.get("group") not in dict((k, 1) for k, _, _ in GROUPS):
         st.session_state.group = next((k for k, _, _ in GROUPS if counts[k]), "confirm")
-    labels = {k: f"{lab} ({counts[k]})" for k, lab, _ in GROUPS}
-    left, right = st.columns([6, 7], gap="large")
-    with left:
-        with st.container(key="inbox_groups"):
-            picked = st.segmented_control("Inbox", [k for k, _, _ in GROUPS], format_func=lambda k: labels[k], default=st.session_state.group,
-                                          key=f"group_ctl_{st.session_state.group}", label_visibility="collapsed", width="stretch")
-    if picked and picked != st.session_state.group:
-        st.session_state.group = picked
-        st.session_state.selected = None
-        st.rerun()
-    group = st.session_state.group
-    view = [d for d in decisions if group_of(d) == group]
+    with st.container(key="dispatch_workspace"):
+        answer_column, orders_column = st.columns([62, 38], gap="medium")
+        # Build the list first so its selection feeds the answer in the same run.
+        with orders_column, st.container(key="orders_pane"):
+            with st.container(key="orders_header"):
+                st.markdown("### Orders")
+                group_labels = {k: f"{label} ({counts[k]})" for k, label, _ in GROUPS}
+                with st.container(key="inbox_groups"):
+                    picked = st.segmented_control("Inbox", [k for k, _, _ in GROUPS],
+                        format_func=lambda k: group_labels[k], default=st.session_state.group,
+                        key=f"group_ctl_{st.session_state.group}", label_visibility="collapsed", width="stretch")
+                if picked and picked != st.session_state.group:
+                    st.session_state.group = picked
+                    st.session_state.selected = None
+                    st.rerun()
+                group = st.session_state.group
+                view = [d for d in decisions if group_of(d) == group]
 
-    def urgency(d):          # messages typed here first, newest on top; then the inbox, tightest first (fewest days to spare, then arrival)
-        c = chosen(d)
-        at = desk.arrival.get(d["request_id"], 0)
-        if not d["request_id"].startswith("R"):
-            return (0, -at, 0)
-        return (1, margin(c, d) if (c and d.get("batch")) else 99, at)
-    view.sort(key=urgency)
+                def urgency(d):          # messages typed here first, newest on top; then the inbox, tightest first (fewest days to spare, then arrival)
+                    c = chosen(d)
+                    at = desk.arrival.get(d["request_id"], 0)
+                    if not d["request_id"].startswith("R"):
+                        return (0, -at, 0)
+                    return (1, margin(c, d) if (c and d.get("batch")) else 99, at)
+                view.sort(key=urgency)
 
-    with left:
-        if group == "confirm" and view:
-            plan = desk.bulk_plan()
-            n_go, held = len(plan["confirm"]), plan["held"]
-            if n_go and st.button(f"Confirm {n_go} safe recommendation{'s' if n_go != 1 else ''} in one click", type="primary", width="stretch",
-                                  help="Safe = on time even if the batch is reworked. Each one is re-checked against the ledger as it is confirmed."):
-                out = desk.confirm_all(by="dispatcher")
-                left = len(out["skipped"])
-                flash(f"{len(out['confirmed'])} dispatched: " + ", ".join(f"{x['request_id']} → {desk.name(x['workshop_id'])}" for x in out["confirmed"])
-                      + (f". {left} left for you to decide." if left else "."))
+                if group == "decide":
+                    st.caption("Refused requests → Needs a decision.")
+                if group == "confirm" and view:
+                    plan = desk.bulk_plan()
+                    n_go, held = len(plan["confirm"]), plan["held"]
+                    if n_go and st.button(f"Confirm {n_go} safe recommendation{'s' if n_go != 1 else ''} in one click", type="primary", width="stretch",
+                                          help="Safe = on time even if the batch is reworked. Each one is re-checked against the ledger as it is confirmed."):
+                        out = desk.confirm_all(by="dispatcher")
+                        remaining = len(out["skipped"])
+                        flash(f"{len(out['confirmed'])} dispatched: " + ", ".join(f"{x['request_id']} → {desk.name(x['workshop_id'])}" for x in out["confirmed"])
+                              + (f". {remaining} left for you to decide." if remaining else "."))
+                        st.session_state.selected = None
+                        st.rerun()
+                    if held:
+                        n_tight = sum(1 for h in held if h["reason"].startswith("tight"))
+                        n_stop = sum(1 for h in held if h["reason"].startswith("reported stopped"))
+                        st.caption(("Held back for you: " if n_go else "Decide these one by one: ")
+                                   + f"{n_tight} tight (a rework would make them late), listed ahead of the other inbox messages"
+                                   + (f", {n_stop} going to a workshop reported as stopped" if n_stop else "")
+                                   + (f", and {len(held) - n_tight - n_stop} that would take a workshop a tight one needs." if len(held) > n_tight + n_stop else "."))
+            inbox = pd.DataFrame([inbox_row(d) for d in view])
+            if len(inbox):
+                inbox_columns = ["ID", "Order", "Customer", "Product", "Decision", "Back", "Spare"]
+                if inbox["Update"].any():
+                    inbox_columns.insert(0, "Update")
+                # Expand our own container rather than resizing Streamlit's native
+                # fullscreen frame. Its viewport-sized grid can otherwise enter a
+                # render loop when constrained around the sidebar/composer.
+                expanded = st.session_state.get("orders_expanded", False)
+                with st.container(key="orders_table_expanded" if expanded else "orders_table", height=400, border=False):
+                    if st.button("Close expanded table" if expanded else "Expand table",
+                                 icon=":material/close_fullscreen:" if expanded else ":material/open_in_full:",
+                                 key="toggle_order_table"):
+                        st.session_state.orders_expanded = not expanded
+                        st.rerun()
+                    ev = st.dataframe(inbox.style.apply(inbox_styles, axis=1), hide_index=True, width="content" if expanded else "stretch",
+                                      column_order=inbox_columns, on_select="rerun", selection_mode="single-row",
+                                      # the key changes with every new message, ledger write or human action, so a stale row selection cannot outlive the list it pointed into
+                                      key=f"inbox_{group}_{len(desk.decisions)}_{len(desk.ledger.records)}_{len(desk.actions)}_{expanded}", height=400,
+                                      column_config={"Update": st.column_config.TextColumn("Update", width=88),
+                                                     "ID": st.column_config.TextColumn("ID", width=48),
+                                                     "Order": st.column_config.TextColumn("Order", width=76),
+                                                     "Customer": st.column_config.TextColumn("Customer", width=110),
+                                                     "Product": st.column_config.TextColumn("Product", width=140),
+                                                     "Decision": st.column_config.TextColumn("Decision", width=178),
+                                                     "Back": st.column_config.TextColumn("Back", width=84),
+                                                     "Spare": st.column_config.TextColumn("Spare", width=74,
+                                                                                          help="Days between the promised date and the due date; negative = late")})
+                rows = ev.selection.rows if ev and ev.selection else []
+                if rows:
+                    st.session_state.selected = inbox.iloc[rows[0]]["ID"]
+                if st.session_state.selected not in {d["request_id"] for d in view}:
+                    st.session_state.selected = inbox.iloc[0]["ID"]
+            else:
+                st.caption("Nothing here.")
                 st.session_state.selected = None
-                st.rerun()
-            if held:
-                n_tight = sum(1 for h in held if h["reason"].startswith("tight"))
-                n_stop = sum(1 for h in held if h["reason"].startswith("reported stopped"))
-                st.caption(("Held back for you: " if n_go else "Decide these one by one: ")
-                           + f"{n_tight} tight (a rework would make them late), listed ahead of the other inbox messages"
-                           + (f", {n_stop} going to a workshop reported as stopped" if n_stop else "")
-                           + (f", and {len(held) - n_tight - n_stop} that would take a workshop a tight one needs." if len(held) > n_tight + n_stop else "."))
-        inbox = pd.DataFrame([inbox_row(d) for d in view])
-        if len(inbox):
-            ev = st.dataframe(inbox, hide_index=True, width="stretch", on_select="rerun", selection_mode="single-row",
-                              # the key changes with every new message, ledger write or human action, so a stale row selection cannot outlive the list it pointed into
-                              key=f"inbox_{group}_{len(desk.decisions)}_{len(desk.ledger.records)}_{len(desk.actions)}", height=min(38 + 35 * len(inbox), 600),
-                              column_config={"ID": st.column_config.TextColumn("ID", width=48),
-                                             "Order": st.column_config.TextColumn("Order", width=76),
-                                             "Decision": st.column_config.TextColumn("Decision", width=178),
-                                             "Back": st.column_config.TextColumn("Back", width=84),
-                                             "Spare": st.column_config.TextColumn("Spare", width=74,
-                                                                                  help="Days between the promised date and the due date; negative = late")})
-            rows = ev.selection.rows if ev and ev.selection else []
-            if rows:
-                st.session_state.selected = inbox.iloc[rows[0]]["ID"]
-            if st.session_state.selected not in {d["request_id"] for d in view}:
-                st.session_state.selected = inbox.iloc[0]["ID"]
-        else:
-            st.caption("Nothing here.")
-            st.session_state.selected = None
 
-    with right:
-        rid = st.session_state.selected
-        if not rid or rid not in desk.decisions:
-            st.caption("Select a message to see the recommendation.")
-        else:
-            render_card(desk.decisions[rid])
-            # a message was just sent: bring its answer into view (on a phone the card is below the inbox).
-            # Kept for a few seconds because switching group reruns the app; the id makes each message's script new, or the browser would not run it again.
-            if time.time() < st.session_state.get("scroll_until", 0):
-                components.html(f"<!-- {rid} -->" + """<script>window.parent.eval("[150, 600, 1200].forEach(ms => setTimeout(() => "
-                                + "document.querySelector('.st-key-answer_card')?.scrollIntoView({block: 'start'}), ms))")</script>""", height=0)
+        with answer_column, st.container(key="response_pane"):
+            render_operation_feedback()
+            impact = desk.stopped_impact()
+            if impact:
+                with st.expander(f"Stopped workshops · {len(impact)} dispatched batches"):
+                    st.markdown(f"**🛑 {len(impact)} dispatched {'batch is' if len(impact) == 1 else 'batches are'} at a stopped workshop.** Their promised dates no longer hold: move them, or leave them to wait for it to reopen.")
+                    for row in impact:
+                        m1, m2 = st.columns([3, 2], vertical_alignment="center")
+                        if row["best"]:
+                            b = row["best"]
+                            m1.markdown(f"**{row['order_id']}** · {row['pieces']} pcs at {desk.name(row['workshop_id'])} · due {fmt_date(row['due_date'])}. "
+                                        f"Best now: **{b['name']}**, back {fmt_date(b['promised_date'])}" + ("" if b["on_time"] else f" ({b['late_days']}d late)"))
+                            if m2.button(f"Re-dispatch to {b['name']}", key=f"move_{row['audit_id']}", width="stretch"):
+                                act(desk.reassign, row["audit_id"], b["workshop_id"], reason=f"{desk.name(row['workshop_id'])} stopped",
+                                    ok=f"{row['order_id']} re-dispatched to {b['name']}")
+                                st.rerun()
+                        else:
+                            m1.markdown(f"**{row['order_id']}** · {row['pieces']} pcs at {desk.name(row['workshop_id'])}: no other workshop can take it.")
+            rid = st.session_state.selected
+            if not desk.decisions:
+                st.info("Type a message below, or click Load morning inbox in the sidebar. Nothing is dispatched until you confirm.")
+            elif not rid or rid not in desk.decisions:
+                st.caption("Select an order on the right to see its recommendation.")
+            else:
+                render_card(desk.decisions[rid])
 
 
 # ------------------------------------------------------------------ workshops
-with tab_ws:
-    st.subheader("Workshop register")
-    q = desk.ledger.queues()
-    reg = pd.DataFrame([{
-        "ID": w.workshop_id, "Name": w.name, "Makes": " + ".join(sorted(w.makes)), "Status": w.status,
-        "Pcs/day": w.capacity, "Transport days": w.lead_days, "Defect": f"{w.defect_rate:.0%}", "Cost/pc": w.cost,
-        "Max batch": str(w.max_batch) if w.max_batch else "no cap", "Queue now (days)": round(q[w.workshop_id], 1),
-        "Sent today (pcs)": sent.get(w.workshop_id, 0),
-        "Stopped": f"confirmed by {desk.stopped[w.workshop_id]['by']}" if w.workshop_id in desk.stopped else "",
-        "Standing constraint": (f"no new work ({desk.session_excl[w.workshop_id]['by']}, {desk.session_excl[w.workshop_id]['source']} "
-                                f"at {desk.session_excl[w.workshop_id].get('time', '')})") if w.workshop_id in desk.session_excl else "",
-        "Notes": w.notes,
-    } for w in desk.W.values()])
-    st.dataframe(reg, hide_index=True, width="stretch")
-    st.bar_chart(reg, x="Name", y="Queue now (days)", horizontal=True, height=280)
+if page == "workshops":
+    with st.container(key="page_content"):
+        st.subheader("Workshop register")
+        render_operation_feedback()
+        q = desk.ledger.queues()
+        reg = pd.DataFrame([{
+            "ID": w.workshop_id, "Name": w.name, "Makes": " + ".join(sorted(w.makes)), "Status": w.status,
+            "Pcs/day": w.capacity, "Transport days": w.lead_days, "Defect": f"{w.defect_rate:.0%}", "Cost/pc": w.cost,
+            "Max batch": str(w.max_batch) if w.max_batch else "no cap", "Queue now (days)": round(q[w.workshop_id], 1),
+            "Sent today (pcs)": sent.get(w.workshop_id, 0),
+            "Stopped": f"confirmed by {desk.stopped[w.workshop_id]['by']}" if w.workshop_id in desk.stopped else "",
+            "Standing constraint": (f"no new work ({desk.session_excl[w.workshop_id]['by']}, {desk.session_excl[w.workshop_id]['source']} "
+                                    f"at {desk.session_excl[w.workshop_id].get('time', '')})") if w.workshop_id in desk.session_excl else "",
+            "Notes": w.notes,
+        } for w in desk.W.values()])
+        st.dataframe(reg, hide_index=True, width="stretch")
+        st.bar_chart(reg, x="Name", y="Queue now (days)", horizontal=True, height=280)
 
-    st.subheader("A workshop has stopped")
-    st.caption("Stops new work there and lists what can be moved. Undo with Reopen in the sidebar.")
-    sc1, sc2 = st.columns([3, 2], vertical_alignment="bottom")
-    active = [w.workshop_id for w in desk.W.values() if w.status == "ACTIVE" and w.workshop_id not in desk.stopped]
-    stop_wid = sc1.selectbox("Workshop", active, format_func=desk.name)
-    if stop_wid and sc2.button("Mark as stopped", width="stretch"):
-        act(desk.mark_stopped, stop_wid, ok=f"{desk.name(stop_wid)} marked as stopped; open requests re-ranked")
-        st.rerun()
+        st.subheader("A workshop has stopped")
+        st.caption("Stops new work there and lists what can be moved. Undo with Reopen in the sidebar.")
+        sc1, sc2 = st.columns([3, 2], vertical_alignment="bottom")
+        active = [w.workshop_id for w in desk.W.values() if w.status == "ACTIVE" and w.workshop_id not in desk.stopped]
+        stop_wid = sc1.selectbox("Workshop", active, format_func=desk.name, key="stop_workshop")
+        if stop_wid and sc2.button("Mark as stopped", width="stretch"):
+            act(desk.mark_stopped, stop_wid, ok=f"{desk.name(stop_wid)} marked as stopped; open requests re-ranked")
+            st.rerun()
 
-    st.subheader("Who can take a batch?")
-    wc1, wc2 = st.columns(2)
-    cat = wc1.selectbox("Category", ["TOPS", "ACCESSORIES"])
-    pcs = wc2.number_input("Pieces", min_value=1, max_value=5000, value=1500, step=100)
-    elig = eligibility_table(desk.W, cat, int(pcs), exclude=set(desk.session_excl) | set(desk.stopped))
-    st.dataframe(pd.DataFrame([{"Workshop": e["name"], "Can take": "✅" if e["eligible"] else "❌", "Reason": e["reason"]} for e in elig]),
-                 hide_index=True, width="stretch")
+        st.subheader("Who can take a batch?")
+        wc1, wc2 = st.columns(2)
+        cat = wc1.selectbox("Category", ["TOPS", "ACCESSORIES"])
+        pcs = wc2.number_input("Pieces", min_value=1, max_value=5000, value=1500, step=100)
+        elig = eligibility_table(desk.W, cat, int(pcs), exclude=set(desk.session_excl) | set(desk.stopped))
+        st.dataframe(pd.DataFrame([{"Workshop": e["name"], "Can take": "✅" if e["eligible"] else "❌", "Reason": e["reason"]} for e in elig]),
+                     hide_index=True, width="stretch")
 
 
 # ------------------------------------------------------------------ audit
-with tab_audit:
-    st.subheader("Ledger")
-    if desk.ledger.records:
-        st.dataframe(pd.DataFrame([{
-            "Audit": r["audit_id"], "Status": r["status"], "Request": r["request_id"], "Requester": r["requester"],
-            "Order": r["order_id"], "Pieces": r["pieces"], "Workshop": desk.name(r["workshop_id"]),
-            "Back": r["estimate"]["promised_date"], "If reworked": r["estimate"].get("worst_date", ""), "Due": r["due_date"],
-            "Late days": r["estimate"]["late_days"], "Confirmed by": r["confirmed_by"], "At": r["written_at"],
-        } for r in desk.ledger.records]), hide_index=True, width="stretch")
-        st.download_button("Download audit.json", json.dumps(desk.ledger.records, ensure_ascii=False, indent=2, default=str),
-                           file_name="audit.json", mime="application/json")
-    else:
-        st.caption("No dispatches yet.")
-    st.subheader("Dispatcher actions")
-    if desk.actions:
-        st.dataframe(pd.DataFrame(desk.actions), hide_index=True, width="stretch")
-    else:
-        st.caption("No actions yet.")
+if page == "audit":
+    with st.container(key="page_content"):
+        st.subheader("Ledger")
+        render_operation_feedback()
+        if desk.ledger.records:
+            st.dataframe(pd.DataFrame([{
+                "Audit": r["audit_id"], "Status": r["status"], "Request": r["request_id"], "Requester": r["requester"],
+                "Order": r["order_id"], "Pieces": r["pieces"], "Workshop": desk.name(r["workshop_id"]),
+                "Back": r["estimate"]["promised_date"], "If reworked": r["estimate"].get("worst_date", ""), "Due": r["due_date"],
+                "Late days": r["estimate"]["late_days"], "Confirmed by": r["confirmed_by"], "At": r["written_at"],
+            } for r in desk.ledger.records]), hide_index=True, width="stretch")
+            st.download_button("Download audit.json", json.dumps(desk.ledger.records, ensure_ascii=False, indent=2, default=str),
+                               file_name="audit.json", mime="application/json")
+        else:
+            st.caption("No dispatches yet.")
+        st.subheader("Dispatcher actions")
+        if desk.actions:
+            st.dataframe(pd.DataFrame(desk.actions), hide_index=True, width="stretch")
+        else:
+            st.caption("No actions yet.")
 
 
 # ------------------------------------------------------------------ simulator
@@ -731,39 +753,47 @@ def run_sim(seed: int, shock: bool, seeds: int) -> pd.DataFrame:
                           "Cost": round(a["cost"]), "Max share %": round(a["max share"], 1)} for n, a in acc.items()])
 
 
-with tab_sim:
-    st.subheader("Shared simulator · 120 orders replayed")
-    st.caption("Runs the untouched harness/simulate.py (v3): the three official baselines, the simple rule-based allocator (earliest finish) "
-               "and the three objective settings offered in the sidebar.")
-    s1, s2, s3 = st.columns([1, 1, 2])
-    seed = s1.number_input("First seed", value=5105, step=1)
-    ten = s2.toggle("Average 10 seeds", value=True, help="Tracks v4 asks for shock results averaged over ten seeds (5105–5114).")
-    shock = s3.toggle("Shock (one workshop closes for two weeks, 31 Jan – 14 Feb)")
-    df = run_sim(int(seed), bool(shock), 10 if ten else 1)
-    st.dataframe(df, hide_index=True, width="stretch")
-    st.bar_chart(df, x="Policy", y="% late", color="Kind", horizontal=True, height=max(360, 42 * len(df)))
-    st.caption("Command-line equivalent: `python harness/run_baselines.py --seed " + str(int(seed))
-               + (" --shock" if shock else "") + (" --seeds 10`" if ten else " --seeds 1`"))
+if page == "simulator":
+    with st.container(key="page_content"):
+        st.subheader("Shared simulator · 120 orders replayed")
+        render_operation_feedback()
+        st.caption("Runs the untouched harness/simulate.py (v3): the three official baselines, the simple rule-based allocator (earliest finish) "
+                   "and the three objective settings offered in the sidebar.")
+        s1, s2, s3 = st.columns([1, 1, 2])
+        seed = s1.number_input("First seed", value=5105, step=1)
+        ten = s2.toggle("Average 10 seeds", value=True, help="Tracks v4 asks for shock results averaged over ten seeds (5105–5114).")
+        shock = s3.toggle("Shock (one workshop closes for two weeks, 31 Jan – 14 Feb)")
+        df = run_sim(int(seed), bool(shock), 10 if ten else 1)
+        st.dataframe(df, hide_index=True, width="stretch")
+        st.bar_chart(df, x="Policy", y="% late", color="Kind", horizontal=True, height=max(360, 42 * len(df)))
+        st.caption("Command-line equivalent: `python harness/run_baselines.py --seed " + str(int(seed))
+                   + (" --shock" if shock else "") + (" --seeds 10`" if ten else " --seeds 1`"))
 
 
 # ------------------------------------------------------------------ evaluation
-with tab_eval:
-    st.subheader("Evaluation")
-    st.markdown("The language surface is scored on four things, separately: **extraction** (12 parsed fields), **behaviour** "
-                "(extract / clarify / refuse / decline), **decision** (checked by a second implementation that shares no code with the system) "
-                "and **explanation** (every number traced; the reply contains what that kind of reply must contain).")
-    labels = ROOT / "eval" / "gold_labels.csv"
-    if labels.exists():
-        st.code(f"python eval/run_language_eval.py --labels {labels.relative_to(ROOT)}", language="bash")
-    else:
-        st.info("The gold labels are not frozen yet (`eval/gold_labels.csv` is missing), so nothing is scored here. "
-                "Once they are, run `python eval/run_language_eval.py --labels eval/gold_labels.csv` (add `--parser llm --runs 3` for the LLM).")
-    replay = Desk(objective=desk.alloc.objective)
-    for ln in inbox_lines():
-        replay.handle(ln)
-    traced = sum(1 for d in replay.decisions.values() if d["number_check"]["ok"])
-    e1, e2, e3 = st.columns(3)
-    e1.metric("Replies with every number traced", f"{traced}/{len(replay.decisions)}")
-    e2.metric("Dispatched in an unattended replay", len(replay.ledger.records))
-    e3.metric("Objective", desk.alloc.objective)
-    st.caption("An unattended replay processes the 30 messages in time order and confirms every on-time recommendation; it is what the evaluation scripts run.")
+if page == "evaluation":
+    with st.container(key="page_content"):
+        st.subheader("Evaluation")
+        render_operation_feedback()
+        st.markdown("The language surface is scored on four things, separately: **extraction** (12 parsed fields), **behaviour** "
+                    "(extract / clarify / refuse / decline), **decision** (checked by a second implementation that shares no code with the system) "
+                    "and **explanation** (every number traced; the reply contains what that kind of reply must contain).")
+        labels = ROOT / "eval" / "gold_labels.csv"
+        if labels.exists():
+            st.code(f"python eval/run_language_eval.py --labels {labels.relative_to(ROOT)}", language="bash")
+        else:
+            st.info("The gold labels are not frozen yet (`eval/gold_labels.csv` is missing), so nothing is scored here. "
+                    "Once they are, run `python eval/run_language_eval.py --labels eval/gold_labels.csv` (add `--parser llm --runs 3` for the LLM).")
+        replay = Desk(objective=desk.alloc.objective)
+        for ln in inbox_lines():
+            replay.handle(ln)
+        traced = sum(1 for d in replay.decisions.values() if d["number_check"]["ok"])
+        e1, e2, e3 = st.columns(3)
+        e1.metric("Replies with every number traced", f"{traced}/{len(replay.decisions)}")
+        e2.metric("Dispatched in an unattended replay", len(replay.ledger.records))
+        e3.metric("Objective", desk.alloc.objective)
+        st.caption("An unattended replay processes the 30 messages in time order and confirms every on-time recommendation; it is what the evaluation scripts run.")
+
+
+# Measure real input height and keep user-resized order width through reruns.
+components.html("<script>" + (ROOT / "app" / "desk_layout.js").read_text(encoding="utf-8") + "</script>", height=0)

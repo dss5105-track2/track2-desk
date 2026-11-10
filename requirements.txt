@@ -1,4 +1,5 @@
-# Kernel, harness and tests use only the Python standard library (Python >= 3.9).
+# Kernel and harness use only the Python standard library (Python >= 3.9).
+# UI regression tests also use the Streamlit and pandas dependencies below.
 
 # Language layer: OpenAI Responses API and local .env loading
 openai
