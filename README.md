@@ -66,7 +66,7 @@ flowchart LR
 - **Four replies:** dispatch, ask back, refuse with a reason and an alternative, or say the data cannot answer.
 - **Nothing is booked until the dispatcher confirms.**
 - **One message can carry several orders.** Each order number gets its own card, showing the whole message. If the orders are only listed, a shop or ban in the message applies to all of them; if each is followed by its own words, those stay with it. Anything else is not applied: the order book's values stand and the card says to read the message. Words like "not", "already" or "don't" beside several orders get a question instead. Several batches with no order numbers get a question, not a guess.
-- **A workshop can stop.** Report it in chat ("GiantWeave has shut for two weeks") or on the Workshops tab. Once the dispatcher confirms, no new work goes there, open requests are re-ranked, and batches already there can be moved in one click, within what their own request allowed.
+- **A workshop can stop.** Report it in chat ("GiantWeave has shut for two weeks") or on the Workshops page. Once the dispatcher confirms, no new work goes there, open requests are re-ranked, and batches already there can be moved in one click, within what their own request allowed.
 - **The objective is a setting.** The interface offers three:
 
 | Setting | Role | How it ranks |
@@ -117,11 +117,10 @@ Records: [`first_run.md`](eval/heldout/first_run.md), [`second_run.md`](eval/hel
 - **Stop reports are matched by patterns**, in code and not by the model, so unusual wording is missed. A person confirms every stop, because a pattern cannot tell a real closure from a rumour. Duration ("for two weeks") is not read, and dates already promised at a stopped workshop are not recalculated.
 - **Seven-day calendar: working days are not implemented.** Estimates assume a seven-day week, as the simulator does. A Sunday-closed variant exists only as an experiment (`experiments/scripts/exp_sunday.py`): the simple rule rises to 3.67% late.
 - **One message, two problems.** A message that repeats a dispatch and names a workshop that cannot take the batch now shows both problems and asks the dispatcher. It is scored as clarify, so where the held-out labels say refuse (H41, H42) it still counts as wrong. The labelling rules did not set an order, and the frozen labels were not changed to fit. The earlier ban behind H41 ("Don‘t give SteadyHands more new orders") was typed with a curly apostrophe, which the rule parser used to miss; curly and straight quotes now read the same, so H41 becomes a refusal. That fix came after we had seen the held-out set, so the held-out count after it (37 of 43 reply types, rule parser) is not a clean result.
-- **Status questions are matched by patterns.** A message that only asks how an order is doing ("Is ORD-041 done?", "Where is ORD-041?") gets "progress tracking is outside this desk" and no recommendation. Wordings that start with the order number ("ORD-041 done?") are still read as dispatch requests by the rule parser; GPT-5 mini reads most of them.
-- **Status questions** about a customer with several orders (H03) are declined where the labels say ask back.
+- **Status questions are matched by patterns.** A message that only asks how an order is doing ("Is ORD-041 done?", "Where is ORD-041?") gets "progress tracking is outside this desk" and no recommendation. Wordings that start with the order number ("ORD-041 done?") are still read as dispatch requests by the rule parser; GPT-5 mini reads most of them. A status question about a customer with several orders (H03) is declined where the labels say ask back.
 - **Dates and quantities the rule parser cannot read** ("next Friday", "12/4", "1,000 pcs", "eight hundred") are not guessed: the card names them and the order book's value is used. ISO dates (2026-04-12) are read. Unfamiliar workshop short names ("Budget", "QS") are not recognised and not flagged.
 - **Cancellations are not handled here.** "Cancel ORD-053" or "customer cancelled" gets a question and no recommendation; a dispatched batch is changed under Done.
-- **The ledger lives in memory.** It is lost when the session ends unless `audit.json` is downloaded, and it suits one dispatcher.
+- **The ledger lives in memory.** Refreshing the page or ending the session loses it unless `audit.json` is downloaded, and it suits one dispatcher.
 - **The decision check under-scores the system.** The frozen answers omit standing exclusions, so honouring one can be marked wrong (H35, H38).
 
 ## Repository layout
