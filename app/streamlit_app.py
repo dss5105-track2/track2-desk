@@ -15,6 +15,7 @@ Round 2 layout, built for a dispatcher with thirty messages and an hour:
 from __future__ import annotations
 
 import json
+import re
 import os
 import sys
 from datetime import date
@@ -180,6 +181,17 @@ def margin(c: dict, d: dict) -> int:
     return (date.fromisoformat(d["batch"]["due_date"]) - date.fromisoformat(c["promised_date"])).days
 
 
+SIBLINGS_RE = re.compile(r"^one of (\d+) orders in this message; the others: (.+)$")
+
+
+def open_card(request_id: str) -> None:
+    """Show another request's card, switching the inbox group if it sits elsewhere."""
+    st.session_state.selected = request_id
+    st.session_state.group_pending = group_of(desk.decisions[request_id])
+    st.session_state.jump_n = st.session_state.get("jump_n", 0) + 1   # drop any stale row selection in the list
+    st.rerun()
+
+
 def group_of(d: dict) -> str:
     return next(k for k, _, statuses in GROUPS if d["status"] in statuses)
 
@@ -246,9 +258,12 @@ with st.sidebar:
         with st.container(key="session_actions"):
             c1, c2 = st.columns(2)
             if c1.button("Load morning inbox", type="primary", width="stretch", disabled=any(r.startswith("R") for r in desk.decisions)):
-                with st.spinner("Reading 30 messages…"):
-                    for ln in inbox_lines():
-                        desk.propose(ln)
+                lines = list(inbox_lines())
+                bar = st.progress(0.0, text=f"Reading message 0 of {len(lines)}…")
+                for i, ln in enumerate(lines, start=1):
+                    desk.propose(ln)
+                    bar.progress(i / len(lines), text=f"Reading message {i} of {len(lines)}…")
+                bar.empty()
                 st.session_state.selected = None
                 flash("30 messages received. Nothing is dispatched until you confirm.")
                 st.rerun()
@@ -268,7 +283,7 @@ with st.sidebar:
                 flash(f"{desk.name(wid)} reopened; open requests re-ranked")
                 st.rerun()
         for wid, src in list(desk.session_excl.items()):
-            cc1, cc2 = st.columns([4, 1])
+            cc1, cc2 = st.columns([3, 1], vertical_alignment="center")
             cc1.markdown(f"⛔ **{desk.name(wid)}** · no new work  \n<small>{src['by']} in {src['source']} at {src.get('time', '')} · applies to every open request</small>",
                          unsafe_allow_html=True)
             if cc2.button("Lift", key=f"lift_{wid}"):
@@ -421,6 +436,14 @@ def render_card(d: dict) -> None:
                        + (f" / {desk.name(ar['recommended'])}" if ar["recommended"] else "") + "; it changed with the ledger or a later constraint.")
         for fl in d["flags"]:
             if fl.startswith("updated since received") or (fl.startswith("standing constraint") and not desk.is_open(d)):
+                continue
+            siblings = SIBLINGS_RE.match(fl)
+            if siblings:
+                ids = [x.strip() for x in siblings.group(2).split(",") if x.strip() in desk.decisions]
+                st.caption(f"• one of {siblings.group(1)} orders in this message; open the other:")
+                for col, other in zip(st.columns(max(len(ids), 1) + 3), ids):
+                    if col.button(f"{other} · {desk.decisions[other]['order_id'] or 'card'}", key=f"sib_{rid}_{other}", type="tertiary"):
+                        open_card(other)
                 continue
             st.caption(f"• {fl}")
 
@@ -641,7 +664,7 @@ if page == "dispatch":
                     ev = left_aligned_table(inbox.style.apply(inbox_styles, axis=1), hide_index=True, width="content" if expanded else "stretch",
                                       column_order=inbox_columns, on_select="rerun", selection_mode="single-row",
                                       # the key changes with every new message, ledger write or human action, so a stale row selection cannot outlive the list it pointed into
-                                      key=f"inbox_{group}_{len(desk.decisions)}_{len(desk.ledger.records)}_{len(desk.actions)}_{expanded}", height=400,
+                                      key=f"inbox_{group}_{len(desk.decisions)}_{len(desk.ledger.records)}_{len(desk.actions)}_{expanded}_{st.session_state.get('jump_n', 0)}", height=400,
                                       column_config={"Update": st.column_config.TextColumn("Update", width=88),
                                                      "ID": st.column_config.TextColumn("ID", width=48),
                                                      "Order": st.column_config.TextColumn("Order", width=76),

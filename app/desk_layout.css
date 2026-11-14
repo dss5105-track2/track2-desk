@@ -233,3 +233,8 @@
     width: max-content !important; height: 24px !important;
 }
 .st-key-orders_table_expanded .st-key-toggle_order_table { top: 16px; right: 16px; }
+
+/* Sidebar buttons: never squeeze a label into one letter per line or an ellipsis. */
+.st-key-session_actions button p { white-space: normal; overflow: visible; text-overflow: clip; }
+[class*="st-key-lift_"] button, [class*="st-key-reopen_"] button { min-width: 3.75rem; padding-left: 8px; padding-right: 8px; }
+[class*="st-key-lift_"] button p, [class*="st-key-reopen_"] button p { white-space: nowrap; overflow: visible; }
