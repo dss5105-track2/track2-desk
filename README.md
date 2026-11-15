@@ -41,7 +41,7 @@ Copy `.env.example` to `.env` and set `OPENAI_API_KEY`. `.env` is git-ignored; n
 python -m pytest -q
 ```
 
-380 tests should pass, including the Streamlit navigation, workshop selection and change-feedback regression tests.
+384 tests should pass, including the Streamlit navigation, workshop selection and change-feedback regression tests.
 
 | Command | What it does |
 |---|---|
@@ -138,7 +138,7 @@ eval/          Protocol, labelling guide, labels, scoring scripts, independent d
 eval/heldout/  Frozen held-out inbox and the records of each run
 experiments/   Scripts and results behind the numbers above, challenge set, failure cases
 docs/          Tool specification, architecture, interface guide, user test tasks, factory primer, round-2 history
-tests/         380 automated tests
+tests/         384 automated tests
 ```
 
 Some working documents are in Chinese, including the held-out run records, the interface guide and the evaluation protocol.
