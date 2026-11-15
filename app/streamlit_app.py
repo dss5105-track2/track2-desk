@@ -601,7 +601,7 @@ if page == "dispatch":
     if st.session_state.get("group") not in dict((k, 1) for k, _, _ in GROUPS):
         st.session_state.group = next((k for k, _, _ in GROUPS if counts[k]), "confirm")
     with st.container(key="dispatch_workspace"):
-        answer_column, orders_column = st.columns([62, 38], gap="medium")
+        answer_column, orders_column = st.columns([54, 46], gap="medium")
         # Build the list first so its selection feeds the answer in the same run.
         with orders_column, st.container(key="orders_pane"):
             with st.container(key="orders_header"):
