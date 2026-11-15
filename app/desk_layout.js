@@ -4,8 +4,8 @@
     let responseSignature = host.__sweaterDeskLayout?.responseSignature;
     let pageNoticeSignature = host.__sweaterDeskLayout?.pageNoticeSignature;
     host.__sweaterDeskLayout?.dispose();
-    let ratio = .38, frame = 0, disposed = false;
-    try { ratio = Number(host.sessionStorage.getItem('sweater-desk-order-width')) || .38; } catch (_) {}
+    let ratio = .46, frame = 0, disposed = false;
+    try { ratio = Number(host.sessionStorage.getItem('sweater-desk-order-width-v2')) || .46; } catch (_) {}
     const root = doc.documentElement;
     let observedComposer, observedMain, observedBrand, observedSidebar;
     const observer = new host.ResizeObserver(() => schedule());
@@ -115,20 +115,20 @@
                 const end = () => {
                     handle.removeEventListener('pointermove', move); handle.removeEventListener('pointerup', end);
                     handle.removeEventListener('pointercancel', end);
-                    try { host.sessionStorage.setItem('sweater-desk-order-width', String(ratio)); } catch (_) {}
+                    try { host.sessionStorage.setItem('sweater-desk-order-width-v2', String(ratio)); } catch (_) {}
                 };
                 handle.addEventListener('pointermove', move); handle.addEventListener('pointerup', end);
                 handle.addEventListener('pointercancel', end);
             });
-            handle.addEventListener('dblclick', () => { ratio = .38; schedule(); try { host.sessionStorage.removeItem('sweater-desk-order-width'); } catch (_) {} });
+            handle.addEventListener('dblclick', () => { ratio = .46; schedule(); try { host.sessionStorage.removeItem('sweater-desk-order-width-v2'); } catch (_) {} });
             handle.addEventListener('keydown', event => {
                 if (!['ArrowLeft', 'ArrowRight', 'Home'].includes(event.key)) return;
                 const width = workspace.getBoundingClientRect().width;
                 const minimum = Math.min(320, width * .4), maximum = Math.max(minimum, width - 360);
                 event.preventDefault();
-                ratio = event.key === 'Home' ? .38 : ratio + (event.key === 'ArrowLeft' ? 24 : -24) / width;
+                ratio = event.key === 'Home' ? .46 : ratio + (event.key === 'ArrowLeft' ? 24 : -24) / width;
                 ratio = Math.max(minimum / width, Math.min(maximum / width, ratio));
-                try { host.sessionStorage.setItem('sweater-desk-order-width', String(ratio)); } catch (_) {}
+                try { host.sessionStorage.setItem('sweater-desk-order-width-v2', String(ratio)); } catch (_) {}
                 schedule();
             });
         }
